@@ -7,6 +7,9 @@ ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 # Likewise when using the ssl module
 ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 
+# Disable buffering so that output appears in logs immediately
+ENV PYTHONUNBUFFERED=1
+
 
 WORKDIR /usr/src/app
 
