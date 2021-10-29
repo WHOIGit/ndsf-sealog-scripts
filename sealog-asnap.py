@@ -32,9 +32,7 @@ def is_asnap_enabled():
         f'{apiServerURL}{customVarAPIPath}',
         params={'name': ASNAP_STATUS_VAR_NAME},
         headers=headers,
-    )#.json()
-    print(response)
-    response = response.json()
+    ).json()
     assert type(response) == type([])
     return response[0]['custom_var_value'] == 'On'
 
