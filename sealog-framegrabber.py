@@ -103,16 +103,13 @@ async def handle_event(event):
          return
 
     # Download an image from each framegrabber to memory
-    # TODO: Do this concurrently!
-    frames = []
-    for (_, url, _) in ARGS.grabbers:
-        try:
-            frames.append(download_url(url))
-        except:
-            logger.exception(f'Failed to fetch frame from {url}')
-            frames.append(None)
-            continue
+    print('yyyyyyyyyyyy about to download')
+    frames = await asyncio.gather(*(
+        asyncio.to_thread(download_url, url)
+        for _, url, _ in ARGS.grabbers
+    ), return_exceptions=True)
 
+    frames = [None if isinstance(f, Exception) else f for f in frames]
     if not any(frames):
         logger.warn('Could not contact any framegrabbers')
         return
