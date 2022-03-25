@@ -103,7 +103,6 @@ async def handle_event(event):
          return
 
     # Download an image from each framegrabber to memory
-    print('yyyyyyyyyyyy about to download')
     frames = await asyncio.gather(*(
         asyncio.to_thread(download_url, url)
         for _, url, _ in ARGS.grabbers
@@ -213,7 +212,7 @@ async def imaging_control_listener():
             ARGS.grabbers.append((
                 f'{grabber_info["camera_name"]} (Framegrabber {i+1})',
                 grabber_info['url'],
-                f'{{}}.{grabber_info["camera_name"]}.framegrab{i:02}.jpg',
+                f'{{}}.{grabber_info["camera_name"]}.framegrab{i+1:02}.jpg',
             ))
 
     await sio.connect(f'{u.scheme}://{u.netloc}',
