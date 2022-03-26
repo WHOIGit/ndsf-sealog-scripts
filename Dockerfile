@@ -1,4 +1,4 @@
-FROM python:3.8
+FROM python:3.9
 
 # Use the CA bundle mounted from the host, rather than those that come with
 # the certifi package.
