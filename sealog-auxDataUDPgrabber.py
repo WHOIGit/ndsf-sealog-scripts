@@ -217,10 +217,10 @@ def handle_jds_packet(packet):
         ('longitude', 'ddeg'),
         ('local_x', 'meters'),
         ('local_y', 'meters'),
-        ('depth', 'meters'),
-        ('heading', 'deg'),
-        ('pitch', 'deg'),
         ('roll', 'deg'),
+        ('pitch', 'deg'),
+        ('heading', 'deg'),
+        ('depth', 'meters'),
         ('altitude', 'meters'),
         # ignoring runtime, wraps
     )
