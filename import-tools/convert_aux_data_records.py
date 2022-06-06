@@ -17,6 +17,7 @@
 import json
 import logging
 import os
+import re
 import sys
 import copy
 
@@ -45,91 +46,39 @@ logger.addHandler(ch)
 alvinCoordDataFields = ['alvin_x', 'alvin_y']
 navDataFields = ['latitude', 'longitude', 'depth', 'altitude', 'heading', 'pitch', 'roll']
 
-oldImageNames = {
-    "Jason": [
-        'Framegrabber 1',
-        'Framegrabber 2',
-        'Framegrabber 3',
-        'Framegrabber 4',
-        'Sci',
-        'Brow',
-        'Pilot',
-        'Aft',
-        'Medea',
-        'Deck'
-    ],
-    "Alvin": [
-        'Framegrabber 1',
-        'Framegrabber 2',
-        'Framegrabber 3'
-    ]
-}
-
-oldImageSources = {
-    "Jason": [
-        'framegrab01',
-        'framegrab02',
-        'framegrab03',
-        'framegrab04',
-        'Sci',
-        'Brow',
-        'Pilot',
-        'Aft',
-        'Medea',
-        'Deck'
-    ],
-    "Alvin": [
-        'framegrab01',
-        'framegrab02',
-        'framegrab03'
-    ]
-}
-
-newImageSources = {
-    "Jason": [
-        'SciCam',
-        'BrowCam',
-        'PilotCam',
-        'AftCam',
-        'PilotCam',
-        'BrowCam',
-        'SciCam',
-        'AftCam',
-        'MedeaCam',
-        'DeckCam'
-    ],
-    "Alvin": [
-        'SubSea1',
-        'SubSea2',
-        'SubSea3'
-    ]
+imageSourceMap = {
+    "Jason": {
+        'framegrab01': 'SciCam',
+        'framegrab02': 'BrowCam',
+        'framegrab03': 'PilotCam',
+        'framegrab04': 'AftCam',
+    },
+    "Alvin": {
+        'framegrab01': 'SubSea1',
+        'framegrab02': 'SubSea2',
+        'framegrab03': 'SubSea3',
+    },
 }
 
 def fixFramegrabImage(loweringID, data, vehicle):
 
     new_data = copy.copy(data)
     if data['data_name'] == 'filename':
+        source, timestamp, ext = os.path.basename(data['data_value']).split('.')
 
-        ext = data['data_value'].split('.')[-1]
-        source = data['data_value'].split('.')[-2]
-        timestamp = data['data_value'].split('/')[-1].split('.')[-3]
-        try:
-            index = oldImageSources[vehicle].index(source)
-            new_data['data_value'] = os.path.join('/', loweringID, newImageSources[vehicle][index], '.'.join([newImageSources[vehicle][index],timestamp,ext]))
-        except:
-            logger.info("Camera name: " + source + " not found in lookup table.")
-            new_data['data_value'] = os.path.join('/', loweringID, source, '.'.join([source,timestamp,ext]))
+        # Detect whether the order is <source>.<timestamp> or <timestamp>.<source>
+        if re.match(r'^\d+_\d+$', timestamp) is None:
+            timestamp, source = source, timestamp
 
+        source = imageSourceMap.get(vehicle, {}).get(source, source)
+
+        new_data['data_value'] = os.path.join('/', loweringID, source, '.'.join([source,timestamp,ext]))
         logger.debug("new image fn: " + new_data['data_value'])
 
     elif data['data_name'] == 'camera_name':
 
-        try:
-            index = oldImageNames[vehicle].index(data['data_value'])
-            new_data['data_value'] = newImageSources[vehicle][index]
-        except:
-            logger.info("Camera name: " + data['data_value'] + " not found in lookup table.")
-            new_data['data_value'] = data['data_value']
+        source = new_data['data_value']
+        new_data['data_value'] = imageSourceMap.get(vehicle, {}).get(source, source)
 
         logger.debug("new image source: " + new_data['data_value'])
 

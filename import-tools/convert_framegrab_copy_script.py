@@ -13,6 +13,7 @@
 import json
 import logging
 import os
+import re
 import sys
 import copy
 
@@ -43,35 +44,22 @@ imageBaseDir = {
     "Alvin": "/home/sealog/sealog-files-alvin/images"
 }
 
-oldImageSources = {
-    "Jason": [
-        'framegrab01',
-        'framegrab02',
-        'framegrab03',
-        'framegrab04'
-    ],
-    "Alvin": [
-        'framegrab01',
-        'framegrab02',
-        'framegrab03'
-    ]
-}
-
-newImageSources = {
-    "Jason": [
-        'SciCam',
-        'BrowCam',
-        'PilotCam',
-        'AftCam'
-    ],
-    "Alvin": [
-        'SubSea1',
-        'SubSea2',
-        'SubSea3'
-    ]
+imageSourceMap = {
+    "Jason": {
+        'framegrab01': 'SciCam',
+        'framegrab02': 'BrowCam',
+        'framegrab03': 'PilotCam',
+        'framegrab04': 'AftCam',
+    },
+    "Alvin": {
+        'framegrab01': 'SubSea1',
+        'framegrab02': 'SubSea2',
+        'framegrab03': 'SubSea3',
+    },
 }
 
 def modifyCopyScript(loweringID, copy_script_fn, vehicle):
+    sources = set()
 
     newCopyScript = ''
     with open(copy_script_fn) as copy_script_fp:
@@ -79,16 +67,20 @@ def modifyCopyScript(loweringID, copy_script_fn, vehicle):
 
             if line.startswith('cp'):
                 copy, verbose, sourceFilePath, destDir = line.split(' ')
-                sourceFileName = sourceFilePath.split('/')[-1]
-                ext = sourceFileName.split('.')[-1]
-                source = sourceFileName.split('.')[-2]
-                timestamp = sourceFileName.split('/')[-1].split('.')[-3]
-                index = oldImageSources[vehicle].index(source)
+                sourceFileName = os.path.basename(sourceFilePath)
+                source, timestamp, ext = sourceFileName.split('.')
 
-                new_destFilePath = os.path.join(loweringID, newImageSources[vehicle][index], ".".join([newImageSources[vehicle][index],timestamp,ext]))
+                # Detect whether the order is <source>.<timestamp> or <timestamp>.<source>
+                if re.match(r'^\d+_\d+$', timestamp) is None:
+                    timestamp, source = source, timestamp
+
+                source = imageSourceMap.get(vehicle, {}).get(source, source)
+                sources.add(source)
+
+                new_destFilePath = os.path.join(loweringID, source, ".".join([source,timestamp,ext]))
                 newCopyScript += ' '.join([copy, verbose, '${SOURCE_DIR}/' + sourceFileName, '${DEST_DIR}/' + new_destFilePath, '\n'])
 
-    return newCopyScript
+    return newCopyScript, sources
 
 
 
@@ -124,7 +116,7 @@ if __name__ == '__main__':
     if args.vehicle == "Alvin":
         loweringID = args.loweringID.replace("AL", "Alvin-D")
 
-    new_copyScript = modifyCopyScript(loweringID, args.framegrabCopyScript, args.vehicle)
+    new_copyScript, sources = modifyCopyScript(loweringID, args.framegrabCopyScript, args.vehicle)
 
     if(new_copyScript):
         print("#!/bin/bash")
@@ -134,7 +126,7 @@ if __name__ == '__main__':
             print("SOURCE_DIR=../images")
 
         print("DEST_DIR=" + imageBaseDir[args.vehicle])
-        for dirname in newImageSources[args.vehicle]:
+        for dirname in sources:
             print('mkdir -p ${DEST_DIR}/' + loweringID + '/' + dirname)
 
         print(new_copyScript)
