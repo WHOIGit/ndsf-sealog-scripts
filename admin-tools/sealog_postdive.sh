@@ -21,6 +21,10 @@ cd "$(dirname "${BASE_SOURCE[0]:-$0}")"
 # since you are running this script on the host.
 API_SERVER_URL="https://localhost/sealog/server"
 
+# This is the directory where the framegrabs are found on the host. If using the
+# standard docker-compose.yml, we can ask Docker for the path.
+FRAMEGRAB_SRC_DIR="$(docker volume inspect sealog_sealog-files --format '{{.Mountpoint}}')/images"
+
 # JWT authentication token
 TOKEN=$(cd .. && python3 -c 'from python_sealog.settings import token; print(token)')
 
@@ -177,7 +181,7 @@ curl -X GET --header 'Accept: application/json' --header 'authorization: '${TOKE
 
 getLoweringData
 
-getFramegrabs | awk -v dest=${LOWERING_DIR}/${FRAMEGRAB_DIR} 'BEGIN{print "#!/bin/bash"} {printf "cp -v %s %s/\n", $0, dest}' > ${LOWERING_DIR}/${LOWERING_ID}_framegrabCopyScript.sh
+getFramegrabs | awk -v dest=${LOWERING_DIR}/${FRAMEGRAB_DIR} 'BEGIN{print "#!/bin/bash"} {printf "cp -v '${FRAMEGRAB_SRC_DIR}'%s %s/\n", $0, dest}' > ${LOWERING_DIR}/${LOWERING_ID}_framegrabCopyScript.sh
 pico ${LOWERING_DIR}/${LOWERING_ID}_framegrabCopyScript.sh
 read -p "Proceed with copying framegrabs? (Y/N): " confirm && [[ $confirm == [Yy] || $confirm == [Yy][Ee][Ss] ]] || exit 1
 echo "Copying framegrabs"
@@ -185,6 +189,7 @@ chmod +x ${LOWERING_DIR}/${LOWERING_ID}_framegrabCopyScript.sh
 ${LOWERING_DIR}/${LOWERING_ID}_framegrabCopyScript.sh
 
 # This should be harmless if there are no Sulis images
+# FIXME: Make sure the source directory for the images is correct
 getSulisCam | awk -v dest=${LOWERING_DIR}/${SULISCAM_DIR} 'BEGIN{print "#!/bin/bash"} {printf "cp -v %s %s/\n", $0, dest}' > ${LOWERING_DIR}/${LOWERING_ID}_sulisCamCopyScript.sh
 pico ${LOWERING_DIR}/${LOWERING_ID}_sulisCamCopyScript.sh
 read -p "Proceed with copying SulisCam images? (Y/N): " confirm && [[ $confirm == [Yy] || $confirm == [Yy][Ee][Ss] ]] || exit 1
