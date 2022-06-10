@@ -81,7 +81,7 @@ def modifyCopyScript(loweringID, copy_script_fn, vehicle):
                 source = imageSourceMap.get(vehicle, {}).get(source, source)
                 sources.add(source)
 
-                new_destFilePath = os.path.join(loweringID, source, ".".join([source,timestamp,ext]))
+                new_destFilePath = os.path.join(loweringID, source, f'{source}.{timestamp}{ext}')
                 newCopyScript += ' '.join([copy, verbose, '${SOURCE_DIR}/' + sourceFileName, '${DEST_DIR}/' + new_destFilePath, '\n'])
 
     return newCopyScript, sources

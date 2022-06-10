@@ -75,7 +75,7 @@ def fixFramegrabImage(loweringID, data, vehicle):
 
         source = imageSourceMap.get(vehicle, {}).get(source, source)
 
-        new_data['data_value'] = os.path.join('/', loweringID, source, '.'.join([source,timestamp,ext]))
+        new_data['data_value'] = os.path.join('/', loweringID, source, f'{source}.{timestamp}{ext}')
         logger.debug("new image fn: " + new_data['data_value'])
 
     elif data['data_name'] == 'camera_name':
