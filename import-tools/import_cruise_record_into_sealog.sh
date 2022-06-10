@@ -11,29 +11,12 @@
 # Parent Directory of sealog database backups
 NEW_CRUISE_DIR="/home/sealog/Cruises"
 
-vehicles="Alvin Jason"
-
 # Directory where the script is being run from
 _D="$(pwd)"
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 # Prompt the user to select a backup to use for the restore
-echo "Which vehicle (pick a number):"
-PS3="> "
-select opt in ${vehicles} "Cancel"; do
-    [[ -n $opt ]] && break || {
-        echo "Please pick a valid option"
-    }
-done
-
-if [ $opt == "Cancel" ];then
-  exit 0
-fi
-
-VEHICLE=$opt
-echo ""
-
 cd ${NEW_CRUISE_DIR}
 cruise_dirs=`ls ${NEW_CRUISE_DIR}`
 cd "${_D}"
@@ -60,7 +43,7 @@ if [ ! -f "${NEW_CRUISE_DIR}/${cruise_filename}" ]; then
 fi
 
 # Stress the potential dangers of continues and confirm the selection
-echo "You chose to import ${VEHICLE} cruise: ${CRUISE}."
+echo "You chose to import cruise: ${CRUISE}."
 read -p "Do you want to proceed with the import (y/n)? " -n 1 -r
 if ! [[ $REPLY =~ ^[Yy]$ ]]; then
   echo ""
@@ -71,9 +54,31 @@ echo ""
 
 echo "Importing cruise record..."
 
-# Change in Docker: We use the `dc` helper tool to run the mongoimport command
-# inside the MongoDB container
-sudo /opt/sealog/dc "$VEHICLE" exec mongo \
+# Change in Docker: We run the mongoimport command inside the MongoDB container.
+# On harmonyhill, use the `dc` helper tool.
+DC_COMMAND="docker-compose -f /opt/sealog/docker-compose.yml"
+if [ -f /opt/sealog/dc ]; then
+    vehicles="Alvin Jason Sandbox"
+
+    echo "Which vehicle (pick a number):"
+    PS3="> "
+    select opt in ${vehicles} "Cancel"; do
+        [[ -n $opt ]] && break || {
+            echo "Please pick a valid option"
+        }
+    done
+
+    if [ $opt == "Cancel" ];then
+        exit 0
+    fi
+
+    VEHICLE=$opt
+    echo ""
+
+    DC_COMMAND="/opt/sealog/dc $VEHICLE"
+fi
+
+sudo ${DC_COMMAND} exec mongo \
   mongoimport \
     --db sealogDB \
     --collection cruises \
