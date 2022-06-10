@@ -11,29 +11,12 @@
 # Parent Directory of sealog database backups
 NEW_CRUISE_DIR="/home/sealog/Cruises"
 
-vehicles="Alvin Jason"
-
 # Directory where the script is being run from
 _D="$(pwd)"
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 # Prompt the user to select a backup to use for the restore
-echo "Which vehicle (pick a number):"
-PS3="> "
-select opt in ${vehicles} "Cancel"; do
-    [[ -n $opt ]] && break || {
-        echo "Please pick a valid option"
-    }
-done
-
-if [ $opt == "Cancel" ];then
-  exit 0
-fi
-
-VEHICLE=$opt
-echo ""
-
 cd ${NEW_CRUISE_DIR}
 cruise_dirs=`ls ${NEW_CRUISE_DIR}`
 cd "${_D}"
@@ -53,13 +36,7 @@ CRUISE=$opt
 echo ""
 
 cd ${NEW_CRUISE_DIR}/${CRUISE}
-lowering_dirs=""
-
-if [[ ${VEHICLE} == "Jason" ]]; then
-  lowering_dirs=`ls -d J2-*`
-else
-  lowering_dirs=`ls -d AL*`
-fi
+lowering_dirs=`find . -maxdepth 1 -type d -exec basename {} \; | egrep -v '\.|modified'`
 cd "${_D}"
 
 echo "Which lowering (pick a number):"
@@ -76,14 +53,14 @@ fi
 if [ $opt == "All" ]; then
   LOWERINGS=${lowering_dirs}
   WARNING_MSG=$(cat <<- EOF
-You chose to import all ${VEHICLE} lowerings within cruise: ${CRUISE}.
+You chose to import all lowerings within cruise: ${CRUISE}.
 EOF
 )
 
 else
   LOWERINGS=$opt
   WARNING_MSG=$(cat <<- EOF
-You chose to import ${VEHICLE} lowering ${LOWERINGS} within cruise: ${CRUISE}.
+You chose to import lowering ${LOWERINGS} within cruise: ${CRUISE}.
 EOF
 )
 
@@ -114,9 +91,34 @@ for LOWERING in $LOWERINGS; do
 
   echo ""
 
+
+  # Change in Docker: We run the mongoimport command inside the MongoDB container.
+  # On harmonyhill, use the `dc` helper tool.
+  DC_COMMAND="docker-compose -f /opt/sealog/docker-compose.yml"
+  if [ -f /opt/sealog/dc ]; then
+    vehicles="Alvin Jason Sandbox"
+
+    echo "Which vehicle (pick a number):"
+    PS3="> "
+    select opt in ${vehicles} "Cancel"; do
+        [[ -n $opt ]] && break || {
+            echo "Please pick a valid option"
+        }
+    done
+
+    if [ $opt == "Cancel" ];then
+        exit 0
+    fi
+
+    VEHICLE=$opt
+    echo ""
+
+    DC_COMMAND="/opt/sealog/dc $VEHICLE"
+  fi
+
   echo "Importing lowering record..."
   lowering_filename="${CRUISE}/${LOWERING}/modifiedForImport/${LOWERING}_loweringRecord_mod.json"
-  sudo /opt/sealog/dc "$VEHICLE" exec mongo \
+  sudo ${DC_COMMAND} exec mongo \
     mongoimport \
       --db sealogDB \
       --collection lowerings \
@@ -127,7 +129,7 @@ for LOWERING in $LOWERINGS; do
 
   echo "Importing lowering events"
   event_filename="${CRUISE}/${LOWERING}/modifiedForImport/${LOWERING}_eventOnlyExport_mod.json"
-  sudo /opt/sealog/dc "$VEHICLE" exec mongo \
+  sudo ${DC_COMMAND} exec mongo \
     mongoimport \
       --db sealogDB \
       --collection events \
@@ -138,7 +140,7 @@ for LOWERING in $LOWERINGS; do
 
   echo "Importing lowering aux data"
   auxdata_filename="${CRUISE}/${LOWERING}/modifiedForImport/${LOWERING}_auxDataExport_mod.json"
-  sudo /opt/sealog/dc "$VEHICLE" exec mongo \
+  sudo ${DC_COMMAND} exec mongo \
     mongoimport \
       --db sealogDB \
       --collection event_aux_data \
@@ -154,7 +156,7 @@ for LOWERING in $LOWERINGS; do
   pv -p -w 80 "${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/modifiedForImport/${LOWERING}_framegrabCopyScript_mod.sh" | bash > /dev/null
   echo ""
 
-  if [[ "$VEHICLE" == "Jason" && -f "${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/modifiedForImport/${LOWERING}_sulisCamCopyScript_mod.sh" ]]; then
+  if [ -f "${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/modifiedForImport/${LOWERING}_sulisCamCopyScript_mod.sh" ]; then
     echo "Copying SulisCam Stills"
     chmod +x "${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/modifiedForImport/${LOWERING}_sulisCamCopyScript_mod.sh"
     pv -p -w 80 "${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/modifiedForImport/${LOWERING}_sulisCamCopyScript_mod.sh" | bash > /dev/null
