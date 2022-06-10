@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-#
-# Modified: SJM 5/12/21 If vessel is not in metadata and vehicle is Alvin, define it as the Atlantis.
 
 import json
 import logging
@@ -28,7 +26,7 @@ ch.setFormatter(formatter)
 # add ch to logger
 logger.addHandler(ch)
 
-def convertCruiseRecord(vehicle, cruise_record_fn):
+def convertCruiseRecord(cruise_record_fn):
     with open(cruise_record_fn) as cruise_record_fp:
         cruises = json.load(cruise_record_fp)
 
@@ -70,12 +68,7 @@ def convertCruiseRecord(vehicle, cruise_record_fn):
                     if 'cruise_vessel' in cruise:
                         cruiseOBJ['cruise_additional_meta']['cruise_vessel'] = cruise['cruise_vessel']
                     elif 'cruise_vessel' not in cruiseOBJ['cruise_additional_meta']:
-                        if vehicle == 'Alvin':
-                            logger.warning("cruise_vessel not in metadata and vehicle is Alvin- Assigning vessel as the Atlantis")
-                            print("cruise_vessel not in metadata and vehicle is Alvin- Assigning vessel as the Atlantis")
-                            cruiseOBJ['cruise_additional_meta']['cruise_vessel'] = "RV Atlantis"
-                        else:
-                            cruiseOBJ['cruise_additional_meta']['cruise_vessel'] = ""
+                        cruiseOBJ['cruise_additional_meta']['cruise_vessel'] = ""
 
                     if 'cruise_description' in cruise:
                         cruiseOBJ['cruise_additional_meta']['cruise_description'] = cruise['cruise_description']
@@ -184,7 +177,7 @@ if __name__ == '__main__':
         logger.error(args.cruise_record_file + " does not exist.")
         sys.exit(0)
 
-    new_cruise_record = convertCruiseRecord(args.vehicle, args.cruise_record_file)
+    new_cruise_record = convertCruiseRecord(args.cruise_record_file)
 
     if(new_cruise_record):
         print(json.dumps(new_cruise_record, indent=2))
