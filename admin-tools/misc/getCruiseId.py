@@ -27,6 +27,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 from python_sealog.settings import apiServerURL, cruisesAPIPath, headers
 
+# FIXME: Override apiServerURL because we're outside of Docker
+apiServerURL = "https://localhost/sealog/server"
+
 
 if __name__ == '__main__':
 

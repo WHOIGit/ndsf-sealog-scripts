@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -eu
 #
 # Purpose: This script backs up sealog data to file including the cruise 
 #          record, lowering record and event_templates.
@@ -15,7 +15,9 @@
 #  Author: Webb Pinner webbpinner@gmail.com
 # Created: 2018-09-26
 
-API_SERVER_URL=$(cd .. && python3 -c 'from python_sealog.settings import apiServerURL; print(apiServerURL)')
+# Note: This should be the URL to the API endpoint from *outside* of Docker,
+# since you are running this script on the host.
+API_SERVER_URL="https://localhost/sealog/server"
 
 # JWT authentication token
 TOKEN=$(cd .. && python3 -c 'from python_sealog.settings import token; print(token)')
