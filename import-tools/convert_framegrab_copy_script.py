@@ -39,10 +39,18 @@ ch.setFormatter(formatter)
 # add ch to logger
 logger.addHandler(ch)
 
-imageBaseDir = {
-    "Jason": "/home/sealog/sealog-files-jason/images",
-    "Alvin": "/home/sealog/sealog-files-alvin/images"
-}
+
+# FIXME: This is really hacky
+if "harmonyhill" in os.getenv("HOSTNAME", ""):
+    imageBaseDir = {
+        "Jason": "/home/sealog/sealog-files-jason/images",
+        "Alvin": "/home/sealog/sealog-files-alvin/images",
+    }
+else:
+    imageBaseDir = {
+        "Jason": "/home/sealog/sealog-files/images",
+        "Alvin": "/home/sealog/sealog-files/images",
+    }
 
 imageSourceMap = {
     "Jason": {
@@ -124,10 +132,7 @@ if __name__ == '__main__':
 
     if(new_copyScript):
         print("#!/bin/bash")
-        if args.vehicle == "Alvin":
-            print("SOURCE_DIR=../framegrabs")
-        else:
-            print("SOURCE_DIR=../images")
+        print("SOURCE_DIR=../images")
 
         print("DEST_DIR=" + imageBaseDir[args.vehicle])
         for dirname in sources:
