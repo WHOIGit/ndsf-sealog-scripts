@@ -68,11 +68,15 @@ def modifyCopyScript(loweringID, copy_script_fn, vehicle):
             if line.startswith('cp'):
                 copy, verbose, sourceFilePath, destDir = line.split(' ')
                 sourceFileName = os.path.basename(sourceFilePath)
-                source, timestamp, ext = sourceFileName.split('.')
+
+                # Parse the filename
+                name, ext = os.path.splitext(sourceFileName)
 
                 # Detect whether the order is <source>.<timestamp> or <timestamp>.<source>
-                if re.match(r'^\d+_\d+$', timestamp) is None:
-                    timestamp, source = source, timestamp
+                if re.match(r'^\d+_\d+$', name.split(".")[0]):
+                    timestamp, source = name.split(".", maxsplit=1)
+                else:
+                    source, timestamp = os.path.splitext(name)
 
                 source = imageSourceMap.get(vehicle, {}).get(source, source)
                 sources.add(source)

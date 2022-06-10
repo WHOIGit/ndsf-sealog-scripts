@@ -64,11 +64,14 @@ def fixFramegrabImage(loweringID, data, vehicle):
 
     new_data = copy.copy(data)
     if data['data_name'] == 'filename':
-        source, timestamp, ext = os.path.basename(data['data_value']).split('.')
+        # Parse the filename
+        name, ext = os.path.splitext(os.path.basename(data['data_value']))
 
         # Detect whether the order is <source>.<timestamp> or <timestamp>.<source>
-        if re.match(r'^\d+_\d+$', timestamp) is None:
-            timestamp, source = source, timestamp
+        if re.match(r'^\d+_\d+$', name.split(".")[0]):
+            timestamp, source = name.split(".", maxsplit=1)
+        else:
+            source, timestamp = os.path.splitext(name)
 
         source = imageSourceMap.get(vehicle, {}).get(source, source)
 
