@@ -58,13 +58,8 @@ CRUISE=$opt
 echo ""
 
 cd ${NEW_CRUISE_DIR}/${CRUISE}
-lowering_dirs=""
+lowering_dirs=`find . -maxdepth 1 -type d -exec basename {} \; | egrep -v '\.|modified'`
 
-if [[ ${VEHICLE} == "Jason" ]]; then
-  lowering_dirs=`ls -d J2-*`
-else
-  lowering_dirs=`ls -d AL*`
-fi
 cd "${_D}"
 
 echo "Which lowering (pick a number):"
@@ -81,7 +76,7 @@ fi
 if [ $opt == "All" ]; then
   LOWERINGS=${lowering_dirs}
   WARNING_MSG=$(cat <<- EOF
-You chose to modify all ${VEHICLE} lowerings within cruise: ${CRUISE}.
+You chose to modify all lowerings within cruise: ${CRUISE}.
 Proceeding with this will create the following subdirectory in each lowering directory:
  - <lowering_dir>/modifiedForImport
 This subdirectory will contain the modified files for that lowering.
@@ -91,7 +86,7 @@ EOF
 else
   LOWERINGS=$opt
   WARNING_MSG=$(cat <<- EOF
-You chose to modify ${VEHICLE} lowering ${LOWERINGS} within cruise: ${CRUISE}.
+You chose to modify lowering ${LOWERINGS} within cruise: ${CRUISE}.
 Proceeding with this will create the following subdirectory:
  - ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERINGS}/modifiedForImport
 This subdirectory will contain the modified files for that lowering.
@@ -120,57 +115,37 @@ for LOWERING in $LOWERINGS; do
   mkdir -p ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/modifiedForImport
 
   echo "Processing Lowering Record..."
-  FILENAME=""
-  if [ ${VEHICLE} == "Jason" ]; then
-    FILENAME=${LOWERING}_loweringRecord.json
-  else
-    FILENAME=${LOWERING}_sealogLoweringRecord.json 
-  fi
-  python3 ${SCRIPT_DIR}/convert_lowering_records.py ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/${FILENAME} --vehicle ${VEHICLE} > ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/modifiedForImport/${LOWERING}_loweringRecord_mod.json
+  FILENAME=${LOWERING}_loweringRecord.json
+  python3 ${SCRIPT_DIR}/convert_lowering_records.py --vehicle ${VEHICLE} ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/${FILENAME} > ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/modifiedForImport/${LOWERING}_loweringRecord_mod.json
   if [ $? -ne 0 ]; then
     exit 1
   fi
 
   echo "Processing Event Records..."
-  if [ ${VEHICLE} == "Jason" ]; then
-    FILENAME=${LOWERING}_eventOnlyExport.json
-  else
-    FILENAME=${LOWERING}_sealogEventsOnlyExport.json 
-  fi
-  python3 ${SCRIPT_DIR}/convert_event_records.py ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/${FILENAME} --vehicle ${VEHICLE} > ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/modifiedForImport/${LOWERING}_eventOnlyExport_mod.json
+  FILENAME=${LOWERING}_eventOnlyExport.json
+  python3 ${SCRIPT_DIR}/convert_event_records.py --vehicle ${VEHICLE} ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/${FILENAME} > ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/modifiedForImport/${LOWERING}_eventOnlyExport_mod.json
   if [ $? -ne 0 ]; then
     exit 1
   fi
 
   echo "Processing Aux Data Records..."
-  if [ ${VEHICLE} == "Jason" ]; then
-    FILENAME=${LOWERING}_auxDataExport.json
-  else
-    FILENAME=${LOWERING}_sealogAuxDataExport.json 
-  fi
-  python3 ${SCRIPT_DIR}/convert_aux_data_records.py ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/${FILENAME} --vehicle ${VEHICLE} > ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/modifiedForImport/${LOWERING}_auxDataExport_mod.json
+  FILENAME=${LOWERING}_auxDataExport.json
+  python3 ${SCRIPT_DIR}/convert_aux_data_records.py --vehicle ${VEHICLE} ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/${FILENAME} > ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/modifiedForImport/${LOWERING}_auxDataExport_mod.json
   if [ $? -ne 0 ]; then
     exit 1
   fi
 
   echo "Processing Framegrab copy script..."
-  if [ ${VEHICLE} == "Jason" ]; then
-    FILENAME=${LOWERING}_framegrabCopyScript.sh
-  else
-    FILENAME=${LOWERING}_sealogFramegrabCopyScript.sh
-    ls -1 ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/framegrabs | awk '{printf "cp -v ./%s ./%s\n", $1, $1}' > ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/${FILENAME}
-  fi
-  python3 ${SCRIPT_DIR}/convert_framegrab_copy_script.py ${LOWERING} ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/${FILENAME} --vehicle ${VEHICLE} > ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/modifiedForImport/${LOWERING}_framegrabCopyScript_mod.sh
+  FILENAME=${LOWERING}_framegrabCopyScript.sh
+  python3 ${SCRIPT_DIR}/convert_framegrab_copy_script.py --vehicle ${VEHICLE} ${LOWERING} ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/${FILENAME} > ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/modifiedForImport/${LOWERING}_framegrabCopyScript_mod.sh
   if [ $? -ne 0 ]; then
-    exit 1
+      exit 1
   fi
 
-  if [ ${VEHICLE} == "Jason" ]; then
-    if [ -f ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/${LOWERING}_sulisCamCopyScript.sh ]; then
+  if [ -f ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/${LOWERING}_sulisCamCopyScript.sh ]; then
       echo "Processing SulisCam copy script..."
       python3 ${SCRIPT_DIR}/convert_sulisCam_copy_script.py ${LOWERING} ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/${LOWERING}_sulisCamCopyScript.sh > ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/modifiedForImport/${LOWERING}_sulisCamCopyScript_mod.sh
-    else
+  else
       echo "WARNING: No SulisCam copy script detected"
-    fi
   fi
 done
