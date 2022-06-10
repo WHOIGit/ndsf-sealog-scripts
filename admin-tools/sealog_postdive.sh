@@ -15,6 +15,8 @@
 #  Author: Webb Pinner webbpinner@gmail.com
 # Created: 2018-09-26
 
+cd "$(dirname "${BASE_SOURCE[0]:-$0}")"
+
 # Note: This should be the URL to the API endpoint from *outside* of Docker,
 # since you are running this script on the host.
 API_SERVER_URL="https://localhost/sealog/server"
@@ -22,10 +24,10 @@ API_SERVER_URL="https://localhost/sealog/server"
 # JWT authentication token
 TOKEN=$(cd .. && python3 -c 'from python_sealog.settings import token; print(token)')
 
-GET_LOWERING_OID_SCRIPT='python3 /home/jason/sealog-server/misc/getLoweringId.py'
-GET_CRUISE_OID_SCRIPT='python3 /home/jason/sealog-server/misc/getCruiseId.py'
-GET_FRAMEGRAB_SCRIPT='python3 /home/jason/sealog-server/misc/getFramegrabList.py'
-GET_SULISCAM_SCRIPT='python3 /home/jason/sealog-server/misc/getSulisCamList.py'
+GET_LOWERING_OID_SCRIPT='python3 misc/getLoweringId.py'
+GET_CRUISE_OID_SCRIPT='python3 misc/getCruiseId.py'
+GET_FRAMEGRAB_SCRIPT='python3 misc/getFramegrabList.py'
+GET_SULISCAM_SCRIPT='python3 misc/getSulisCamList.py'
 
 # Root data folder for Sealog
 BACKUP_DIR_ROOT="/home/jason/sealog-backup"
