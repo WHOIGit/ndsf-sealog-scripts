@@ -43,9 +43,6 @@ ch.setFormatter(formatter)
 # add ch to logger
 logger.addHandler(ch)
 
-alvinCoordDataFields = ['alvin_x', 'alvin_y']
-navDataFields = ['latitude', 'longitude', 'depth', 'altitude', 'heading', 'pitch', 'roll']
-
 imageSourceMap = {
     "Jason": {
         'framegrab01': 'SciCam',
@@ -114,65 +111,7 @@ def convertAuxDataRecords(aux_data_records_fn, vehicle):
                 new_data['_id'] = { "$oid": data['id'] }
                 del new_data['id']
 
-                if new_data['data_source'] == "alvinRealtimeNavData":
-
-                    new_alvin_data = copy.deepcopy(new_data)
-                    new_alvin_data['data_source'] = "vehicleRealtimeAlvinCoordData"
-                    new_alvin_data['data_array'] = [data for data in new_data['data_array'] if data['data_name'] in alvinCoordDataFields]
-
-                    if len(new_alvin_data['data_array']) > 0:
-                        del new_alvin_data['_id']
-                        # logger.error(json.dumps(new_alvin_data['data_array']))
-                        return_aux_data.append(new_alvin_data)
-                    else:
-                        logger.error("no realtime alvin coords data, skipping")
-
-                    new_data['data_source'] = "vehicleRealtimeNavData"
-                    new_data['data_array'] = [data for data in new_data['data_array'] if data['data_name'] in navDataFields]
-                    if len(new_data['data_array']) == 0:
-                        continue
-
-                elif new_data['data_source'] == "vehicleRealtimeNavData":
-
-                    new_alvin_data = copy.deepcopy(new_data)
-                    new_alvin_data['data_source'] = "vehicleRealtimeAlvinCoordData"
-                    new_alvin_data['data_array'] = [data for data in new_data['data_array'] if data['data_name'] in alvinCoordDataFields]
-
-                    if len(new_alvin_data['data_array']) > 0:
-                        del new_alvin_data['_id']
-                        # logger.error(json.dumps(new_alvin_data['data_array']))
-                        return_aux_data.append(new_alvin_data)
-                    else:
-                        logger.warn("no realtime alvin coords data, skipping")
-
-                    new_data['data_source'] = "vehicleRealtimeNavData"
-                    new_data['data_array'] = [data for data in new_data['data_array'] if data['data_name'] in navDataFields]
-                    if len(new_data['data_array']) == 0:
-                        continue
-
-                elif new_data['data_source'] == "renavData":
-
-                    new_alvin_data = copy.deepcopy(new_data)
-                    new_alvin_data['data_source'] = "vehicleReNavAlvinCoordData"
-                    new_alvin_data['data_array'] = [data for data in new_data['data_array'] if data['data_name'] in alvinCoordDataFields]
-
-                    if len(new_alvin_data['data_array']) > 0:
-                        del new_alvin_data['_id']
-                        # logger.error(json.dumps(new_alvin_data['data_array']))
-                        return_aux_data.append(new_alvin_data)
-                    else:
-                        logger.warn("no renav alvin coords data, skipping")
-
-                    new_data['data_source'] = "vehicleReNavData"
-                    new_data['data_array'] = [data for data in new_data['data_array'] if data['data_name'] in navDataFields]
-                    if len(new_data['data_array']) == 0:
-                        continue
-
-                elif new_data['data_source'] == "framegrabber":
-                    new_data['data_source'] = "vehicleRealtimeFramegrabberData"
-                    new_data['data_array'] = list(map(lambda data: fixFramegrabImage(loweringID, data, vehicle), new_data['data_array']))
-
-                elif new_data['data_source'] == "vehicleRealtimeFramegrabberData":
+                if new_data['data_source'] == "vehicleRealtimeFramegrabberData":
                     new_data['data_array'] = list(map(lambda data: fixFramegrabImage(loweringID, data, vehicle), new_data['data_array']))
 
                 return_aux_data.append(new_data)
