@@ -1,4 +1,12 @@
 #!/bin/bash -eu
+#
+# Purpose: This script is used to import the modded lowering into Sealog
+#
+#   Usage: import_lowering_into_sealog.sh
+#
+#  Author: Webb Pinner webbpinner@gmail.com
+# Created: 2019-05-22
+#Modified: 2019-05-22
 
 # Parent Directory of sealog database backups
 NEW_CRUISE_DIR="/home/sealog/Cruises"
@@ -27,7 +35,7 @@ fi
 CRUISE=$opt
 echo ""
 
-cruise_filename="${CRUISE}/${CRUISE}_cruiseRecord.json"
+cruise_filename="${CRUISE}/modifiedForImport/${CRUISE}_cruiseRecord_mod.json"
 
 if [ ! -f "${NEW_CRUISE_DIR}/${cruise_filename}" ]; then
   echo "ERROR: The modified cruise record $cruise_filename does not exist."
@@ -75,6 +83,7 @@ sudo ${DC_COMMAND} exec mongo \
     --db sealogDB \
     --collection cruises \
     --file "/sealog-import/${cruise_filename}" \
+    --jsonArray \
     --mode upsert
 
 echo ""
