@@ -39,168 +39,25 @@ logger.addHandler(ch)
 
 def convertLoweringRecord(lowering_record_fn, vehicle):
     with open(lowering_record_fn) as lowering_record_fp:
-        lowerings = json.load(lowering_record_fp)
+        lowering = json.load(lowering_record_fp)
+        assert not isinstance(lowering, list)  # support for a list of lowerings is removed
 
-        return_lowerings = []
+        # Convert fields to native Mongo types
+        lowering['_id'] = { "$oid": lowering['id'] }
+        del lowering['id']
 
-        if isinstance(lowerings, (list,)):
+        for ts in ['start_ts', 'stop_ts']:
+            lowering[ts] = { "$date": lowering[ts] }
 
-            for lowering in lowerings:
-                logger.debug("Processing Lowering: " + lowering['lowering_id'])
-                logger.debug(json.dumps(lowering, indent=2))
-                if vehicle == "Jason":
-                    try:
-                        loweringOBJ = {
-                            '_id': {"$oid": lowering['id']},
-                            'lowering_id': lowering['lowering_id'],
-                            'start_ts': { "$date": lowering['start_ts']},
-                            'stop_ts': { "$date": lowering['stop_ts']},
-                            'lowering_location': lowering['lowering_location'],
-                            'lowering_tags': lowering['lowering_tags'],
-                            'lowering_hidden': True,
-                            'lowering_access_list': []
-                        }
+        # Reset the access control and hide by default
+        lowering['lowering_access_list'] = []
+        lowering['lowering_hidden'] = True
 
-                        if 'lowering_additional_meta' in lowering:
-                            loweringOBJ['lowering_additional_meta'] = lowering['lowering_additional_meta']
-                        elif 'lowering_additional_meta' not in loweringOBJ:
-                            loweringOBJ['lowering_additional_meta'] = {}
+        if vehicle == "Alvin":
+            lowering['lowering_id'] = lowering['lowering_id'].replace('AL', 'Alvin-D')
 
-                        if 'lowering_description' in lowering:
-                            loweringOBJ['lowering_additional_meta']['lowering_description'] = lowering['lowering_description']
-                        elif 'lowering_description' not in loweringOBJ['lowering_additional_meta']:
-                            loweringOBJ['lowering_additional_meta']['lowering_description'] = ""
+        return lowering
 
-                        loweringOBJ['lowering_additional_meta']['lowering_files'] = []
-
-                        return_lowerings.append(loweringOBJ)
-                    except Exception as e:
-                        logger.error("Issue with lowering: " + lowering['lowering_id'])
-                        logger.error(e)
-                        sys.exit(os.EX_DATAERR)
-                elif vehicle == "Alvin":
-                    try:
-                        logger.debug("Processing Lowering: " + lowering['lowering_id'])
-                        loweringOBJ = {
-                            '_id': {"$oid": lowering['id']},
-                            'lowering_id': lowering['lowering_id'].replace("AL", "Alvin-D"),
-                            'start_ts': { "$date": lowering['start_ts']},
-                            'stop_ts': { "$date": lowering['stop_ts']},
-                            'lowering_location': lowering['lowering_location'],
-                            'lowering_tags': lowering['lowering_tags'],
-                            'lowering_hidden': True,
-                            'lowering_access_list': []
-                        }
-
-                        if 'lowering_additional_meta' in lowering:
-                            loweringOBJ['lowering_additional_meta'] = lowering['lowering_additional_meta']
-                        elif 'lowering_additional_meta' not in loweringOBJ:
-                            loweringOBJ['lowering_additional_meta'] = {}
-
-                        if 'lowering_description' in lowering:
-                            loweringOBJ['lowering_additional_meta']['lowering_description'] = lowering['lowering_description']
-                        elif 'lowering_description' not in loweringOBJ['lowering_additional_meta']:
-                            loweringOBJ['lowering_additional_meta']['lowering_description'] = ""
-
-                        if 'lowering_pilot' in lowering:
-                            loweringOBJ['lowering_additional_meta']['lowering_pilot'] = lowering['lowering_pilot']
-                        elif 'lowering_pilot' not in loweringOBJ['lowering_additional_meta']:
-                            loweringOBJ['lowering_additional_meta']['lowering_pilot'] = ""
-
-                        if 'lowering_observers' in lowering:
-                            loweringOBJ['lowering_additional_meta']['lowering_observers'] = lowering['lowering_observers']
-                        elif 'lowering_observers' not in loweringOBJ['lowering_additional_meta']:
-                            loweringOBJ['lowering_additional_meta']['lowering_observers'] = []
-
-                        loweringOBJ['lowering_additional_meta']['lowering_files'] = []
-
-                        return_lowerings.append(loweringOBJ)
-
-                    except Exception as e:
-                        logger.error("Issue with: " + lowering['lowering_id'])
-                        logger.error(e)
-                        sys.exit(os.EX_DATAERR)
-        else:
-
-            lowering = lowerings
-
-            logger.debug("Processing Lowering: " + lowering['lowering_id'])
-            logger.debug(json.dumps(lowering,indent=2))
-            if vehicle == "Jason":
-                try:
-                    loweringOBJ = {
-                        '_id': {"$oid": lowering['id']},
-                        'lowering_id': lowering['lowering_id'],
-                        'start_ts': { "$date": lowering['start_ts']},
-                        'stop_ts': { "$date": lowering['stop_ts']},
-                        'lowering_location': lowering['lowering_location'],
-                        'lowering_tags': lowering['lowering_tags'],
-                        'lowering_hidden': True,
-                        'lowering_access_list': []
-                    }
-
-                    if 'lowering_additional_meta' in lowering:
-                        loweringOBJ['lowering_additional_meta'] = lowering['lowering_additional_meta']
-                    elif 'lowering_additional_meta' not in loweringOBJ:
-                        loweringOBJ['lowering_additional_meta'] = {}
-
-                    if 'lowering_description' in lowering:
-                        loweringOBJ['lowering_additional_meta']['lowering_description'] = lowering['lowering_description']
-                    elif 'lowering_description' not in loweringOBJ['lowering_additional_meta']:
-                        loweringOBJ['lowering_additional_meta']['lowering_description'] = ""
-
-                    loweringOBJ['lowering_additional_meta']['lowering_files'] = []
-
-                    return_lowerings.append(loweringOBJ)
-
-                except Exception as e:
-                    logger.error("Issue with lowering: " + lowering['lowering_id'])
-                    logger.error(e)
-                    sys.exit(os.EX_DATAERR)
-
-            elif vehicle == "Alvin":
-                try:
-                    logger.debug("Processing Lowering: " + lowering['lowering_id'])
-                    loweringOBJ = {
-                        '_id': {"$oid": lowering['id']},
-                        'lowering_id': lowering['lowering_id'].replace("AL", "Alvin-D"),
-                        'start_ts': { "$date": lowering['start_ts']},
-                        'stop_ts': { "$date": lowering['stop_ts']},
-                        'lowering_location': lowering['lowering_location'],
-                        'lowering_tags': lowering['lowering_tags'],
-                        'lowering_hidden': True,
-                        'lowering_access_list': []
-                    }
-
-                    if 'lowering_additional_meta' in lowering:
-                        loweringOBJ['lowering_additional_meta'] = lowering['lowering_additional_meta']
-                    elif 'lowering_additional_meta' not in loweringOBJ:
-                        loweringOBJ['lowering_additional_meta'] = {}
-
-                    if 'lowering_description' in lowering:
-                        loweringOBJ['lowering_additional_meta']['lowering_description'] = lowering['lowering_description']
-                    elif 'lowering_description' not in loweringOBJ['lowering_additional_meta']:
-                        loweringOBJ['lowering_additional_meta']['lowering_description'] = ""
-
-                    if 'lowering_pilot' in lowering:
-                        loweringOBJ['lowering_additional_meta']['lowering_pilot'] = lowering['lowering_pilot']
-                    elif 'lowering_pilot' not in loweringOBJ['lowering_additional_meta']:
-                        loweringOBJ['lowering_additional_meta']['lowering_pilot'] = ""
-
-                    if 'lowering_observers' in lowering:
-                        loweringOBJ['lowering_additional_meta']['lowering_observers'] = lowering['lowering_observers']
-                    elif 'lowering_observers' not in loweringOBJ['lowering_additional_meta']:
-                        loweringOBJ['lowering_additional_meta']['lowering_observers'] = []
-
-                    loweringOBJ['lowering_additional_meta']['lowering_files'] = []
-
-                    return_lowerings.append(loweringOBJ)
-                except Exception as e:
-                    logger.error("Issue with: " + lowering['lowering_id'])
-                    logger.error(e)
-                    sys.exit(os.EX_DATAERR)
-
-        return return_lowerings
 
 if __name__ == '__main__':
 
@@ -234,7 +91,7 @@ if __name__ == '__main__':
 
     new_lowering_record = convertLoweringRecord(args.lowering_record_file, args.vehicle)
 
-    if(new_lowering_record):
+    if new_lowering_record:
         print(json.dumps(new_lowering_record, indent=2))
     else:
         logger.error("Nothing to return")

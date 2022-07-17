@@ -123,7 +123,6 @@ for LOWERING in $LOWERINGS; do
       --db sealogDB \
       --collection lowerings \
       --file "/sealog-import/${lowering_filename}" \
-      --jsonArray \
       --mode upsert
   echo ""
 
