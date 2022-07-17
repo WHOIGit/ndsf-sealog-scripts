@@ -83,7 +83,6 @@ sudo ${DC_COMMAND} exec mongo \
     --db sealogDB \
     --collection cruises \
     --file "/sealog-import/${cruise_filename}" \
-    --jsonArray \
     --mode upsert
 
 echo ""
