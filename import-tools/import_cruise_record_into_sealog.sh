@@ -78,7 +78,10 @@ if [ -f /opt/sealog/dc ]; then
     DC_COMMAND="/opt/sealog/dc $VEHICLE"
 fi
 
-sudo ${DC_COMMAND} exec mongo \
+# Determine if we need sudo to interact with docker
+DC_SUDO=$(docker version >/dev/null 2>&1 || echo "sudo")
+
+${DC_SUDO} ${DC_COMMAND} exec mongo \
   mongoimport \
     --db sealogDB \
     --collection cruises \

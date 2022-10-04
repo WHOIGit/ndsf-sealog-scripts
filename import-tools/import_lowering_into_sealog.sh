@@ -116,9 +116,12 @@ for LOWERING in $LOWERINGS; do
     DC_COMMAND="/opt/sealog/dc $VEHICLE"
   fi
 
+  # Determine if we need ${DC_SUDO} to interact with docker
+  DC_SUDO=$(docker version >/dev/null 2>&1 || echo "sudo")
+
   echo "Importing lowering record..."
   lowering_filename="${CRUISE}/${LOWERING}/modifiedForImport/${LOWERING}_loweringRecord_mod.json"
-  sudo ${DC_COMMAND} exec mongo \
+  ${DC_SUDO} ${DC_COMMAND} exec mongo \
     mongoimport \
       --db sealogDB \
       --collection lowerings \
@@ -128,7 +131,7 @@ for LOWERING in $LOWERINGS; do
 
   echo "Importing lowering events"
   event_filename="${CRUISE}/${LOWERING}/modifiedForImport/${LOWERING}_eventOnlyExport_mod.json"
-  sudo ${DC_COMMAND} exec mongo \
+  ${DC_SUDO} ${DC_COMMAND} exec mongo \
     mongoimport \
       --db sealogDB \
       --collection events \
@@ -139,7 +142,7 @@ for LOWERING in $LOWERINGS; do
 
   echo "Importing lowering aux data"
   auxdata_filename="${CRUISE}/${LOWERING}/modifiedForImport/${LOWERING}_auxDataExport_mod.json"
-  sudo ${DC_COMMAND} exec mongo \
+  ${DC_SUDO} ${DC_COMMAND} exec mongo \
     mongoimport \
       --db sealogDB \
       --collection event_aux_data \
