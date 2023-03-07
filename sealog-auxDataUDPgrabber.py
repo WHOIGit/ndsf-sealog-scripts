@@ -161,13 +161,10 @@ def handle_ctm_packet(packet):
         }
     )
 
-
 def handle_icl_packet(packet):
-    # Not entirely sure where this is generated but here's an example:
-    #
+    # This method can handle ICL data strings.
+    # An example ICL string it can parse:
     # ICL 2021/02/12 16:51:40.704 013.4 014.5 C
-    #
-    # First temperature is tip, second is housing.
 
     data = packet.decode().rstrip('\n').split(' ')
 
@@ -192,7 +189,7 @@ def handle_icl_packet(packet):
     add_cache_entry(
         timestamp=timestamp,
         aux_data={
-            'data_source': 'ICLTemperatureProbe',
+           'data_source': 'ICLTemperatureProbe',
             'data_array': [
                 { 'data_name': name, 'data_value': value, 'data_uom': unit }
                 for value, (name, unit) in zip(data[3:], fields)
@@ -200,6 +197,41 @@ def handle_icl_packet(packet):
         }
     )
 
+def handle_iclc_packet(packet):
+    # This method can handle ICLC data strings.
+    # An example ICLC string it can parse:
+    # First temperature is tip, second is housing.
+    # ICLC 2023/01/19 18:28:59.430 1 4.700 20.400 \n
+    data = packet.decode().rstrip('\n').split(' ')
+
+    if not data or data[0] != 'ICLC':
+        return
+
+    fields = (
+        ('tip_temp', 'degC'),
+        ('housing_temp', 'degC'),
+    )
+
+    timestamp = parse_dsl_timestamp(f'{data[1]} {data[2]}')
+
+    # Remove leading zeroes
+    data[4] = data[4].lstrip('0')
+    data[5] = data[5].lstrip('0')
+
+    # Record this packet to our cache.
+    #
+    # Note: As in the original Sealog script, we do not convert any data types;
+    # everything is passed to Sealog as a string. :(
+    add_cache_entry(
+        timestamp=timestamp,
+        aux_data={
+           'data_source': 'ICLTemperatureProbe',
+            'data_array': [
+                { 'data_name': name, 'data_value': value, 'data_uom': unit }
+                for value, (name, unit) in zip(data[4:], fields)
+            ]
+        }
+    )
 
 def handle_jds_packet(packet):
     # An example packet, see sprintf_data_records() in
@@ -350,6 +382,7 @@ if __name__ == '__main__':
         'CSV': handle_csv_packet,
         'CTM': handle_ctm_packet,
         'ICL': handle_icl_packet,
+        'ICLC': handle_iclc_packet,
         'JDS': handle_jds_packet,
         'ODR': handle_odr_packet,
     }
