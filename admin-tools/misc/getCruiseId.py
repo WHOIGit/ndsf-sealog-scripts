@@ -28,7 +28,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(
 
 from python_sealog.settings import apiServerURL, cruisesAPIPath, headers
 
-# FIXME: Override apiServerURL because we're outside of Docker
+# FIXME: Override apiServerURL because we're outside of Docker ("fix" in progress)
 apiServerURL = "https://localhost/sealog/server"
 
 
@@ -38,6 +38,11 @@ if __name__ == '__main__':
   parser.add_argument('cruise_id', help='cruise number (i.e. AT4201)')
 
   args = parser.parse_args()
+
+  # If the script is being run outside the container, use HTTP instead of HTTPS to contact API server.
+  if not os.path.exists('/.dockerenv'):
+    print("Outside Docker container environment, using HTTP API server URL.")
+    apiServerURL = "http://localhost/sealog/server"
 
   r = requests.get(f'{apiServerURL}/{cruisesAPIPath}', headers=headers)
 
