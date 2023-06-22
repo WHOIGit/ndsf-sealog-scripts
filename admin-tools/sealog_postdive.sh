@@ -10,6 +10,8 @@
 #                              the script will first create a folder with 
 #                              the cruiseID and then save the lowering data 
 #                              within that directory 
+#          - [-s]          --> Invoke this flag only if SulisCam was used on
+#                              the vehicle during the dive. 
 #          - <lowering_id> --> the lowering ID (J2-1042)
 #
 #  Author: Webb Pinner webbpinner@gmail.com
@@ -37,6 +39,7 @@ GET_SULISCAM_SCRIPT='python3 misc/getSulisCamList.py'
 BACKUP_DIR_ROOT="/home/jason/sealog-backup"
 FRAMEGRAB_DIR="images"
 SULISCAM_DIR="images/SulisCam"
+SULISCAM_USED=""
 CRUISE_ID=""
 CRUISE_OID=""
 LOWERING_ID=""
@@ -71,18 +74,20 @@ getSulisCam(){
 
 usage(){
 cat <<EOF
-Usage: $0 [-?] [-d dest_dir] [-c cruise_id] <lowering_id>
+Usage: $0 [-?] [-d dest_dir] [-c cruise_id] [-s] <lowering_id>
 	-d <dest_dir>   Where to store the backup, the default is:
 	                ${BACKUP_DIR_ROOT}
 	-c <cruise_id>  The cruise id for the lowering, if specified
 	                the lowering backup will be stored within a 
-	                <cruise_id> directory. 
+	                <cruise_id> directory.
+	-s              Invoke this flag only if SulisCam was used on
+	                the vehicle during the dive. 
 	-?              Print this statement.
 	<lowering_id>   The dive ID i.e. 'J2-1107'
 EOF
 }
 
-while getopts ":d:c:" opt; do
+while getopts ":d:c:s:" opt; do
   case $opt in
    d)
       # echo ${OPTARG}
@@ -91,7 +96,8 @@ while getopts ":d:c:" opt; do
    c)
       CRUISE_ID="${OPTARG}"
       ;;
-
+   s)
+      SULISCAM_USED=true
    \?)
       usage
       exit 0
@@ -161,10 +167,13 @@ if [ ! -d ${LOWERING_DIR} ]; then
             echo "Unable to create framegrab directory... quitting"
             exit 1
     fi
-    mkdir ${LOWERING_DIR}/${SULISCAM_DIR}
-    if [ ! -d ${LOWERING_DIR}/${SULISCAM_DIR} ]; then
-            echo "Unable to create SulisCam directory... quitting"
-            exit 1
+
+    if [ "$SULISCAM_USED" = true ]; then
+        mkdir ${LOWERING_DIR}/${SULISCAM_DIR}
+        if [ ! -d ${LOWERING_DIR}/${SULISCAM_DIR} ]; then
+                echo "Unable to create SulisCam directory... quitting"
+                exit 1
+        fi
     fi
 fi
 
@@ -188,13 +197,13 @@ echo "Copying framegrabs"
 chmod +x ${LOWERING_DIR}/${LOWERING_ID}_framegrabCopyScript.sh
 ${LOWERING_DIR}/${LOWERING_ID}_framegrabCopyScript.sh
 
-# This should be harmless if there are no Sulis images
-# FIXME: Make sure the source directory for the images is correct
-getSulisCam | awk -v dest=${LOWERING_DIR}/${SULISCAM_DIR} 'BEGIN{print "#!/bin/bash"} {printf "cp -v %s %s/\n", $0, dest}' > ${LOWERING_DIR}/${LOWERING_ID}_sulisCamCopyScript.sh
-pico ${LOWERING_DIR}/${LOWERING_ID}_sulisCamCopyScript.sh
-read -p "Proceed with copying SulisCam images? (Y/N): " confirm && [[ $confirm == [Yy] || $confirm == [Yy][Ee][Ss] ]] || exit 1
-echo "Copying SulisCam images"
-chmod +x ${LOWERING_DIR}/${LOWERING_ID}_sulisCamCopyScript.sh
-${LOWERING_DIR}/${LOWERING_ID}_sulisCamCopyScript.sh
-
+# Adding an if-shield to prevent useless script from being generated if SulisCam data wasn't generated. There was a FIXME in here stating "Make sure the source directory for the images is correct". Haven't seen SulisCam used, unsure how to confirm correct source dir. 
+if [ "$SULISCAM_USED" = true ]; then
+	getSulisCam | awk -v dest=${LOWERING_DIR}/${SULISCAM_DIR} 'BEGIN{print "#!/bin/bash"} {printf "cp -v %s %s/\n", $0, dest}' > ${LOWERING_DIR}/${LOWERING_ID}_sulisCamCopyScript.sh
+	pico ${LOWERING_DIR}/${LOWERING_ID}_sulisCamCopyScript.sh
+	read -p "Proceed with copying SulisCam images? (Y/N): " confirm && [[ $confirm == [Yy] || $confirm == [Yy][Ee][Ss] ]] || exit 1
+	echo "Copying SulisCam images"
+	chmod +x ${LOWERING_DIR}/${LOWERING_ID}_sulisCamCopyScript.sh
+	${LOWERING_DIR}/${LOWERING_ID}_sulisCamCopyScript.sh
+fi
 echo "Done!"
