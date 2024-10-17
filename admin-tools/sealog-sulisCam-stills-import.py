@@ -83,27 +83,45 @@ def translate_file_to_events(ppfx_file, source_dir):
                 print(json.dumps(event))
                 print(responseObj)
 
-                auxData = auxDataTemplate
+                # Add renav aux data entry
+                renavData = auxDataTemplate
 
-                auxData['event_id'] = responseObj['insertedId']
-                auxData['data_source'] = "vehicleReNavData"
-                auxData['data_array'] = []
+                renavData['event_id'] = responseObj['insertedId']
+                renavData['data_source'] = "vehicleReNavData"
+                renavData['data_array'] = []
 
-                auxData['data_array'].append({ 'data_name': "latitude",'data_value': row[4], 'data_uom': 'ddeg' })
-                auxData['data_array'].append({ 'data_name': "longitude",'data_value': row[5], 'data_uom': 'ddeg' })
-                auxData['data_array'].append({ 'data_name': "heading",'data_value': row[6], 'data_uom': 'deg' })
-                auxData['data_array'].append({ 'data_name': "depth",'data_value': row[7], 'data_uom': 'meters' })
-                auxData['data_array'].append({ 'data_name': "altitude",'data_value': row[8], 'data_uom': 'meters' })
-                auxData['data_array'].append({ 'data_name': "pitch",'data_value': row[9], 'data_uom': 'deg' })
-                auxData['data_array'].append({ 'data_name': "roll",'data_value': row[10], 'data_uom': 'deg' })
+                renavData['data_array'].append({ 'data_name': "latitude",'data_value': row[4], 'data_uom': 'ddeg' })
+                renavData['data_array'].append({ 'data_name': "longitude",'data_value': row[5], 'data_uom': 'ddeg' })
+                renavData['data_array'].append({ 'data_name': "heading",'data_value': row[6], 'data_uom': 'deg' })
+                renavData['data_array'].append({ 'data_name': "depth",'data_value': row[7], 'data_uom': 'meters' })
+                renavData['data_array'].append({ 'data_name': "altitude",'data_value': row[8], 'data_uom': 'meters' })
+                renavData['data_array'].append({ 'data_name': "pitch",'data_value': row[9], 'data_uom': 'deg' })
+                renavData['data_array'].append({ 'data_name': "roll",'data_value': row[10], 'data_uom': 'deg' })
 
-                print("Adding Aux Data Record")
+                print("Adding Renav Aux Data Record")
 
                 try:
-                    r = requests.post(f'{apiServerURL}/{eventAuxDataAPIPath}', headers=headers, data = json.dumps(auxData))
+                    r = requests.post(f'{apiServerURL}/{eventAuxDataAPIPath}', headers=headers, data = json.dumps(renavData))
                 except Exception as error:
                     print(error)
                     print(event)
+
+                # Add framegrabber aux data entry
+                framegrabberData = auxDataTemplate
+                framegrabberData['event_id'] = responseObj['insertedId']
+                framegrabberData['data_source'] = "vehicleRealtimeFramegrabberData"
+                framegrabberData['data_array'] = []
+                framegrabberData['data_array'].append({ 'data_name': "camera_name", 'data_value': "SulisCam" })
+                framegrabberData['data_array'].append({ 'data_name': "filename", 'data_value': row[3] })
+
+                print("Adding framegrabber Aux Data Record")
+
+                try:
+                    r = requests.post(f'{apiServerURL}/{eventAuxDataAPIPath}', headers=headers, data = json.dumps(framegrabberData))
+                except Exception as error:
+                    print(error)
+                    print(event)
+
 
             except Exception as error:
                 print(error)
