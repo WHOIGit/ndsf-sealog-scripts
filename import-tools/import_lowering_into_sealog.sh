@@ -75,49 +75,48 @@ if ! [[ $REPLY =~ ^[Yy]$ ]]; then
   exit 0
 fi
 
+# Change in Docker: We run the mongoimport command inside the MongoDB container.
+# On harmonyhill, use the `dc` helper tool.
+DC_COMMAND="docker-compose -f /opt/sealog/docker-compose.yml"
+if [ -f /opt/sealog/dc ]; then
+  vehicles="Alvin Jason Sandbox"
+
+  echo "Which vehicle (pick a number):"
+  PS3="> "
+  select opt in ${vehicles} "Cancel"; do
+      [[ -n $opt ]] && break || {
+          echo "Please pick a valid option"
+      }
+  done
+
+  if [ $opt == "Cancel" ];then
+      exit 0
+  fi
+
+  VEHICLE=$opt
+  echo ""
+
+  DC_COMMAND="/opt/sealog/dc $VEHICLE"
+fi
+
+# Determine if we need ${DC_SUDO} to interact with docker
+DC_SUDO=$(docker version >/dev/null 2>&1 || echo "sudo")
+
 for LOWERING in $LOWERINGS; do
 
   if [ ! -d ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING} ]; then
     echo "ERROR: The lowering directory: ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING} does not exist."
-    exit 1
+    continue
   fi
 
   if [ ! -d ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING}/modifiedForImport ]; then
     echo "ERROR: The directory containing the modified files needed to import the lowering: ${NEW_CRUISE_DIR}/${CRUISE}/${LOWERING} does not exist."
     echo "You need to run the modify_lowering_for_import.sh script to create this directory and the required import files."
-    exit 1
+    continue
   fi
-
 
   echo ""
-
-
-  # Change in Docker: We run the mongoimport command inside the MongoDB container.
-  # On harmonyhill, use the `dc` helper tool.
-  DC_COMMAND="docker-compose -f /opt/sealog/docker-compose.yml"
-  if [ -f /opt/sealog/dc ]; then
-    vehicles="Alvin Jason Sandbox"
-
-    echo "Which vehicle (pick a number):"
-    PS3="> "
-    select opt in ${vehicles} "Cancel"; do
-        [[ -n $opt ]] && break || {
-            echo "Please pick a valid option"
-        }
-    done
-
-    if [ $opt == "Cancel" ];then
-        exit 0
-    fi
-
-    VEHICLE=$opt
-    echo ""
-
-    DC_COMMAND="/opt/sealog/dc $VEHICLE"
-  fi
-
-  # Determine if we need ${DC_SUDO} to interact with docker
-  DC_SUDO=$(docker version >/dev/null 2>&1 || echo "sudo")
+  echo "Importing lowering: ${LOWERING}"
 
   echo "Importing lowering record..."
   lowering_filename="${CRUISE}/${LOWERING}/modifiedForImport/${LOWERING}_loweringRecord_mod.json"
