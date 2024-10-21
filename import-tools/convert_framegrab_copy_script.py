@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import re
+import socket
 import sys
 import copy
 
@@ -41,7 +42,7 @@ logger.addHandler(ch)
 
 
 # FIXME: This is really hacky
-if "harmonyhill" in os.getenv("HOSTNAME", ""):
+if "harmonyhill" in socket.gethostname():
     imageBaseDir = {
         "Jason": "/home/sealog/sealog-files-jason/images",
         "Alvin": "/home/sealog/sealog-files-alvin/images",
