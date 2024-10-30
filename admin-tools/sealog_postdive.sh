@@ -12,6 +12,7 @@
 #                              within that directory 
 #          - [-s]          --> Invoke this flag only if SulisCam was used on
 #                              the vehicle during the dive. 
+#          - [-r]          --> Get renavigated CSV output
 #          - <lowering_id> --> the lowering ID (J2-1042)
 #
 #  Author: Webb Pinner webbpinner@gmail.com
@@ -44,6 +45,7 @@ CRUISE_ID=""
 CRUISE_OID=""
 LOWERING_ID=""
 LOWERING_OID=""
+GET_RENAVIGATED_CSV=false
 
 getLoweringData(){
 	echo "LOWERING_OID = ${LOWERING_OID}"
@@ -61,7 +63,13 @@ getLoweringData(){
 	curl -X GET --header 'Accept: application/json' --header 'authorization: '${TOKEN} --output ${LOWERING_DIR}'/'${LOWERING_ID}'_sealogExport.json' ${API_SERVER_URL}'/api/v1/event_exports/bylowering/'${LOWERING_OID}
 
 	echo "Exporting event with aux data as csv"
-	curl -X GET --header 'Accept: application/json' --header 'authorization: '${TOKEN} --output ${LOWERING_DIR}'/'${LOWERING_ID}'_sealogExport.csv' ${API_SERVER_URL}'/api/v1/event_exports/bylowering/'${LOWERING_OID}'?format=csv'
+
+	# If the -r flag is set, we will get the renavigated CSV output.
+	RENAV_PARAM=""
+	if [ "$GET_RENAVIGATED_CSV" = true ]; then
+		RENAV_PARAM="&use_renav=true"
+	fi
+	curl -X GET --header 'Accept: application/json' --header 'authorization: '${TOKEN} --output ${LOWERING_DIR}'/'${LOWERING_ID}'_sealogExport.csv' ${API_SERVER_URL}'/api/v1/event_exports/bylowering/'${LOWERING_OID}'?format=csv'${RENAV_PARAM}
 }
 
 getFramegrabs(){
@@ -74,23 +82,23 @@ getSulisCam(){
 
 usage(){
 cat <<EOF
-Usage: $0 [-?] [-d dest_dir] [-c cruise_id] [-s] <lowering_id>
-	-d <dest_dir>   Where to store the backup, the default is:
-	                ${BACKUP_DIR_ROOT}
-	-c <cruise_id>  The cruise id for the lowering, if specified
-	                the lowering backup will be stored within a 
-	                <cruise_id> directory.
-	-s              Invoke this flag only if SulisCam was used on
-	                the vehicle during the dive. 
-	-?              Print this statement.
-	<lowering_id>   The dive ID i.e. 'J2-1107'
+Usage: $0 [-?] [-d dest_dir] [-c cruise_id] [-s] [-r] <lowering_id>
+    -d <dest_dir>   Where to store the backup, the default is:
+                    ${BACKUP_DIR_ROOT}
+    -c <cruise_id>  The cruise id for the lowering, if specified
+                    the lowering backup will be stored within a 
+                    <cruise_id> directory.
+    -s              Invoke this flag only if SulisCam was used on
+                    the vehicle during the dive.
+    -r              Get renavigated CSV output.
+    -?              Print this statement.
+    <lowering_id>   The dive ID i.e. 'J2-1107'
 EOF
 }
 
-while getopts ":d:c:s:" opt; do
+while getopts ":d:c:sr" opt; do
   case $opt in
    d)
-      # echo ${OPTARG}
       BACKUP_DIR_ROOT=${OPTARG}
       ;;
    c)
@@ -98,6 +106,10 @@ while getopts ":d:c:s:" opt; do
       ;;
    s)
       SULISCAM_USED=true
+      ;;
+   r)
+      GET_RENAVIGATED_CSV=true
+      ;;
    \?)
       usage
       exit 0
