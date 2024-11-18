@@ -1,4 +1,4 @@
-aiohttp==3.10.2
+aiohttp==3.10.11
 python-socketio==5.4.1
 requests==2.32.0
 websockets==9.1
