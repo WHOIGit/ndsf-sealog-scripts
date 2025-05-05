@@ -1,0 +1,114 @@
+version: '3.6'
+
+x-script-template: &x-script-template
+    image: whoi/ndsf-sealog-scripts
+    build: ./ndsf-sealog-scripts/
+    volumes:
+      # Override the scripts baked into the container with our latest code
+      - ./ndsf-sealog-scripts/:/usr/src/app:ro
+
+      # Use the same CA certificate bundle in the container as on the host,
+      # which includes our self-signed certificate. See the Dockerfile for more.
+      - /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
+
+      # Some scripts such as the framegrabber need to write data into the Sealog
+      # files directory.
+      - sealog-files:/home/sealog/sealog-files
+    depends_on:
+      - server
+    restart: unless-stopped
+
+
+services:
+  server:
+    image: whoi/ndsf-sealog-server
+    ports:
+      - "8000:8000"
+    environment:
+      NODE_ENV: production
+      SEALOG_SECRET: svdkblxlihstdsezmiyiohxthkhfdukqcfuiwsjijbpbdtnjttsqphjpqpstnfvs
+    networks:
+      webservicenet:
+        aliases:
+          - sealog-server
+      default:
+    volumes:
+      - sealog-files:/home/sealog/sealog-files
+      - ./server:/usr/src/app/config:ro
+    depends_on:
+      - mongo
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:4
+    restart: unless-stopped
+    volumes:
+      - database:/data/db
+      # Import prior cruises
+      - /home/jason/Cruises:/sealog-import:ro
+
+
+  client:
+    image: whoi/ndsf-sealog-client
+    ports:
+      - "80:80"
+    networks:
+      webservicenet:
+        aliases:
+          - sealog-client      
+      default:
+    volumes:
+      - ./client/client_config.js:/usr/src/app/config/client_config.js:ro
+      # - ./client/client_config.js:/usr/src/app/src/client_config.js:ro
+      - ./client/Jason_Profile.png:/usr/src/app/dist/images/Jason_Profile.png:ro
+    depends_on:
+      - server
+    restart: unless-stopped
+
+  asnap:
+    << : *x-script-template
+    command: python3 sealog-asnap.py --interval 30
+
+  autoActions:
+    << : *x-script-template
+    command: python3 sealog-autoActions.py
+
+  auxDataUDPgrabber:
+    << : *x-script-template
+    command: python3 sealog-auxDataUDPgrabber.py --type JDS --port 10600
+    ports:
+      - "10600:10600/udp"
+
+  auxDataCTMgrabber:
+    << : *x-script-template
+    command: python3 sealog-auxDataUDPgrabber.py --type CTM --port 10502
+    ports:
+      - "10502:10502/udp"
+
+  framegrabber:
+    << : *x-script-template
+    command: >-
+      python3 sealog-framegrabber.py
+          --dest /home/sealog/sealog-files/images
+          --grabber SciCam http://198.17.154.121/cgi-bin/snapshot.cgi?force=1 SciCam.{}.jpg
+          --grabber PilotCam http://198.17.154.122/cgi-bin/snapshot.cgi?force=1 PilotCam.{}.jpg
+          --grabber BrowCam http://198.17.154.123/cgi-bin/snapshot.cgi?force=1 BrowCam.{}.jpg
+          --grabber UserSelect http://198.17.154.124/cgi-bin/snapshot.cgi?force=1 UserSelect.{}.jpg
+
+#  fwdToVirtualVan:
+#    << : *x-script-template
+#    command: python3 sealog-fwdToVirtualVan.py --virtualvan 198.17.154.221:10502
+
+networks:
+  webservicenet:
+    external: true
+    name: webservicenet
+
+
+volumes:
+  database:
+  sealog-files:
+    driver_opts:
+      o: bind
+      type: none
+      device: /home/jason/sealog-files
