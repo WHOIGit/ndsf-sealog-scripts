@@ -1,0 +1,56 @@
+jason@sealog1:~$ sudo docker image inspect whoi/ndsf-sealog-client | grep Created
+[sudo] password for jason: 
+        "Created": "2023-08-10T14:29:19.00232676Z",
+jason@sealog1:~$ sudo docker image inspect whoi/ndsf-sealog-server | grep Created
+        "Created": "2023-01-30T19:41:28.286201187Z",
+jason@sealog1:~$ sudo docker pull whoi/ndsf-sealog-client
+Using default tag: latest
+latest: Pulling from whoi/ndsf-sealog-client
+8a1e25ce7c4f: Pull complete 
+e78b137be355: Pull complete 
+39fc875bd2b2: Pull complete 
+035788421403: Pull complete 
+87c3fb37cbf2: Pull complete 
+c5cdd1ce752d: Pull complete 
+33952c599532: Pull complete 
+f68132d35352: Pull complete 
+4e1a3d0c3c7a: Pull complete 
+37fe49b3b71e: Pull complete 
+cb7a93b85e69: Pull complete 
+e4568e73c404: Pull complete 
+Digest: sha256:85d861a0a47cb9278803e3c96f6c1e2d7ab70e53be452fe26025e4c037f55a6b
+Status: Downloaded newer image for whoi/ndsf-sealog-client:latest
+docker.io/whoi/ndsf-sealog-client:latest
+jason@sealog1:~$ sudo docker pull whoi/ndsf-sealog-server
+Using default tag: latest
+latest: Pulling from whoi/ndsf-sealog-server
+f5196cdf2518: Already exists 
+9bed1e86f01e: Already exists 
+f44e4bdb3a6c: Already exists 
+2f75d131f406: Already exists 
+07dff4ad21eb: Already exists 
+e0ac4f13b766: Already exists 
+df2c3b2eb7cc: Already exists 
+efe636eac583: Already exists 
+fe17849545bb: Already exists 
+3be09baa9f65: Already exists 
+2336163bbafd: Pull complete 
+d4bf3017b3eb: Pull complete 
+1236a5a78bf3: Pull complete 
+205c7d4a8d94: Pull complete 
+d7d10eb4d231: Pull complete 
+a043a5f838eb: Pull complete 
+835c0a163672: Pull complete 
+4ae749156ed6: Pull complete 
+06e75311585f: Pull complete 
+Digest: sha256:055bb41929689265a5af7483258c6da31897688a4e4ebfe30e4aea0399c556ef
+Status: Downloaded newer image for whoi/ndsf-sealog-server:latest
+docker.io/whoi/ndsf-sealog-server:latest
+jason@sealog1:~$ cd ~/git
+jason@sealog1:~/git$ cd ndsf-sealog-client/
+jason@sealog1:~/git/ndsf-sealog-client$ git status
+On branch main
+Your branch is up to date with 'origin/main'.
+
+nothing to commit, working tree clean
+
