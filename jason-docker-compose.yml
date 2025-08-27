@@ -67,7 +67,7 @@ services:
 
   asnap:
     << : *x-script-template
-    command: python3 sealog-asnap.py --interval 30
+    command: python3 sealog-asnap.py --interval 15
 
   autoActions:
     << : *x-script-template
