@@ -60,6 +60,8 @@ def add_cache_entry(aux_data, timestamp=None):
         else:
             break  # early exit since we are in sorted order
 
+    logger.debug(f'Adding cache entry: {aux_data}')
+
     # Insert the entry into the cache maintaining sorted order 
     timestamps = [x.timestamp for x in AUX_DATA_CACHE]
     AUX_DATA_CACHE.insert(
@@ -242,7 +244,6 @@ def handle_jds_packet(packet):
     # jason-rov/data_thread.cpp:
     #
     # JDS 2021/08/13 21:28:04.332 JAS2 38.9518055 -77.1455566 101.33 101.33 4.5 4.5 4.55 9.66 5.55 8841941.2 31.2
-
     data = packet.decode().rstrip('\n').split(' ')
 
     if not data or data[0] != 'JDS':
@@ -274,6 +275,65 @@ def handle_jds_packet(packet):
             'data_array': [
                 { 'data_name': name, 'data_value': value, 'data_uom': unit }
                 for value, (name, unit) in zip(data[4:], fields)
+            ]
+        }
+    )
+
+
+def handle_mds_packet(packet):
+    # MROV packet format:
+    # MDS YYYY/MM/DD HH:MM:SS.SSS Lat Lon Z Depth Alt SOG COG Northing Easting Roll Pitch Heading
+    data = packet.decode().rstrip('\n').split(' ')
+
+    if not data or data[0] != 'MDS':
+        logger.debug('MDS line header missing')
+        return
+
+    # Check for sufficient fields: MDS + date + time + 12 data fields
+    if len(data) < 15:
+        logger.warning(f'MDS packet has insufficient fields: {len(data)} < 15')
+        return
+
+    timestamp = parse_dsl_timestamp(f'{data[1]} {data[2]}')
+
+    # Use JDS field names for consistency with existing nav data
+    fields = (
+        ('latitude', 'ddeg'),
+        ('longitude', 'ddeg'),
+        ('local_x', 'meters'),
+        ('local_y', 'meters'),
+        ('roll', 'deg'),
+        ('pitch', 'deg'),
+        ('heading', 'deg'),
+        ('depth', 'meters'),
+        ('altitude', 'meters'),
+    )
+
+    # Extract MROV fields and map to standard nav data order
+    # MROV: MDS timestamp Lat Lon Z Depth Alt SOG COG Northing Easting Roll Pitch Heading
+    field_values = [
+        data[3],   # latitude -> latitude
+        data[4],   # longitude -> longitude
+        data[10],  # northing -> local_x
+        data[11],  # easting -> local_y
+        data[12],  # roll -> roll
+        data[13],  # pitch -> pitch
+        data[14],  # heading -> heading
+        data[6],   # depth -> depth
+        data[7],   # altitude -> altitude
+    ]
+
+    # Record this packet to our cache.
+    #
+    # Note: As in the original Sealog script, we do not convert any data types;
+    # everything is passed to Sealog as a string. :(
+    add_cache_entry(
+        timestamp=timestamp,
+        aux_data={
+            'data_source': 'vehicleRealtimeNavData',
+            'data_array': [
+                { 'data_name': name, 'data_value': value, 'data_uom': unit }
+                for value, (name, unit) in zip(field_values, fields)
             ]
         }
     )
@@ -316,6 +376,7 @@ def handle_odr_packet(packet):
 
 
 async def udp_listener(handler):
+    print(f'Binding to port {ARGS.port}')
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
@@ -324,6 +385,7 @@ async def udp_listener(handler):
 
     while True:
         packet = await asyncio.get_event_loop().sock_recv(s, 1024)
+        print(f'Received packet: {packet}')
         try:
             handler(packet)
         except:
@@ -331,24 +393,56 @@ async def udp_listener(handler):
 
 
 async def handle_event(event):
+    logger.debug(f'Processing event: {event}')
+    
+    # Extract event timestamp and ID for debugging
+    event_id = event['message']['id']
+    event_ts_str = event['message']['ts']
+    logger.debug(f'Event ID: {event_id}, Event timestamp string: {event_ts_str}')
+    
     event_ts = datetime.datetime.strptime(event['message']['ts'],
                                           '%Y-%m-%dT%H:%M:%S.%fZ')\
                                 .replace(tzinfo=datetime.timezone.utc)
+    logger.debug(f'Parsed event timestamp: {event_ts}')
 
-    aux_data_ts, aux_data = get_cache_entry(event_ts)
+    try:
+        aux_data_ts, aux_data = get_cache_entry(event_ts)
+        logger.debug(f'Found aux data for event {event_id}: timestamp={aux_data_ts}, data_source={aux_data.get("data_source", "unknown")}')
+        logger.debug(f'Aux data details: {aux_data}')
+    except ValueError as e:
+        logger.warning(f'No aux data available for event {event["message"]["id"]}: {e}')
+        logger.debug(f'Cache state - size: {len(AUX_DATA_CACHE)}, timestamps: {[entry.timestamp for entry in AUX_DATA_CACHE[:5]]}...')
+        return
 
+    # Calculate time difference for debugging
+    time_diff = abs((event_ts - aux_data_ts).total_seconds())
+    logger.debug(f'Time difference between event and aux data: {time_diff} seconds (max_age: {ARGS.max_age})')
+    
     # Do not associate with the event if the aux_data we found is too old
-    if abs((event_ts - aux_data_ts).total_seconds()) > ARGS.max_age:
-        logger.info('Ignoring event older than maximum age')
+    if time_diff > ARGS.max_age:
+        logger.info(f'Ignoring event {event_id} - aux data too old (age: {time_diff}s > max: {ARGS.max_age}s)')
         return
 
     # Associate the aux_data with this event
     aux_data['event_id'] = event['message']['id']
-    requests.post(
-        f'{apiServerURL}{eventAuxDataAPIPath}',
-        headers=headers,
-        json=aux_data,
-    )
+    logger.debug(f'Associating aux data with event {event_id}')
+    logger.debug(f'Posting to URL: {apiServerURL}{eventAuxDataAPIPath}')
+    logger.debug(f'Request payload: {aux_data}')
+    
+    try:
+        response = requests.post(
+            f'{apiServerURL}{eventAuxDataAPIPath}',
+            headers=headers,
+            json=aux_data,
+        )
+        logger.debug(f'API response status: {response.status_code}')
+        if response.status_code == 200:
+            logger.debug(f'Successfully associated aux data with event {event_id}')
+        else:
+            logger.warning(f'API request failed for event {event_id}: status={response.status_code}, response={response.text}')
+    except Exception as e:
+        logger.error(f'Exception occurred while posting aux data for event {event_id}: {e}')
+        raise
 
 
 async def event_listener():
@@ -388,6 +482,7 @@ if __name__ == '__main__':
         'ICL': handle_icl_packet,
         'ICLC': handle_iclc_packet,
         'JDS': handle_jds_packet,
+        'MDS': handle_mds_packet,
         'ODR': handle_odr_packet,
     }
 
@@ -396,8 +491,14 @@ if __name__ == '__main__':
                         help='Maximum age of an event that will be annotated')
     parser.add_argument('--port', type=int, required=True)
     parser.add_argument('--type', dest='parser', choices=parsers, required=True)
+    parser.add_argument('--log-level', default='INFO',
+                        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                        help='Set the logging level')
 
     ARGS = parser.parse_args()
     ARGS.parser = parsers[ARGS.parser]
+
+    # Configure logging level based on command line argument
+    logging.getLogger().setLevel(getattr(logging, ARGS.log_level))
 
     asyncio.run(main())
