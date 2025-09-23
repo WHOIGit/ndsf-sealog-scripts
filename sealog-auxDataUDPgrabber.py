@@ -376,7 +376,7 @@ def handle_odr_packet(packet):
 
 
 async def udp_listener(handler):
-    print(f'Binding to port {ARGS.port}')
+    logger.info(f'Binding to port {ARGS.port}')
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
@@ -385,7 +385,7 @@ async def udp_listener(handler):
 
     while True:
         packet = await asyncio.get_event_loop().sock_recv(s, 1024)
-        print(f'Received packet: {packet}')
+        logger.debug(f'Received packet: {packet}')
         try:
             handler(packet)
         except:
