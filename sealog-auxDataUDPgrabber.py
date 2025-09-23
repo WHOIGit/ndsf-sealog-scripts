@@ -436,7 +436,7 @@ async def handle_event(event):
             json=aux_data,
         )
         logger.debug(f'API response status: {response.status_code}')
-        if response.status_code == 200:
+        if response.status_code == 201:
             logger.debug(f'Successfully associated aux data with event {event_id}')
         else:
             logger.warning(f'API request failed for event {event_id}: status={response.status_code}, response={response.text}')
