@@ -23,6 +23,15 @@ import requests
 import socketio
 import websockets
 
+import cv2 #added to capture frame from RTSP stream - 23may2023 - mjs 
+import multiprocessing as mp #Process, Value, Array, RawArray #added to capture frame from RTSP stream - 23may2023 - mjs
+from threading import Thread
+import time
+import sys
+
+#os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "video_codec;h264"
+#os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
+
 from python_sealog.settings import apiServerURL, eventAuxDataAPIPath, headers, \
                                    wsServerURL
 
@@ -32,6 +41,8 @@ logger = logging.getLogger(__file__)
 
 
 CLIENT_WSID = 'framegrabber'
+
+GET_FRAME = 'RTSP'   #'HTTP' or 'RTSP'
 
 HELLO = {
     'type': 'hello',
@@ -55,7 +66,7 @@ EVENT_QUEUE = None  # see https://stackoverflow.com/a/55918049/145504
 # Records the last heartbeat timestamp from the imaging control server
 LAST_HEARTBEAT = None
 
-
+'''
 def download_url(url):
     logger.info('Downloading frame from %s', url)
     data = bytearray()
@@ -64,6 +75,198 @@ def download_url(url):
         for chunk in r.iter_content(chunk_size=8192):
             data += chunk
     return data
+'''
+
+
+def get_http_snapshot(url):
+    logger.info('Downloading snapshot buffer frame from %s', url)
+    data = bytearray()
+    
+    print("******************* Download {} - HTTP snapshot: {}".format(url, datetime.datetime.utcnow()))
+    
+    with requests.get(url, stream=True, timeout=ARGS.timeout) as r:
+        r.raise_for_status()
+        for chunk in r.iter_content(chunk_size=8192):
+            data += chunk
+            
+    print("******************* End download {} - HTTP snapshot: {}".format(url, datetime.datetime.utcnow()))
+            
+    return data
+
+
+
+def get_rtsp_frame(url, data):
+    logger.info('Capturing RTSP frame from %s', url) 
+    frame_bytearray = bytearray()
+    
+    print("******************* Capture {} - RTSP frame: {}".format(url, datetime.datetime.utcnow()))
+     
+    cap = cv2.VideoCapture(url, cv2.CAP_FFMPEG) 
+    #cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    
+    #time.sleep(0.100) #give connection some time - using time instead of looping helps unload network
+      
+    try:
+          
+        if cap.isOpened():
+           '''          
+           i = 0
+           while i < 5: #Loop through at least 10 frames 
+              try:
+                 image = None
+                 #if cap.isOpened():
+                 ret, frame = cap.read()
+                 #ret = cap.grab() # faster than read - process last frame using retreive() - mjs
+                 if ret:
+                    image = frame                 
+                 elif not ret:
+                    cap.release() #releasing camera 
+                    cap = cv2.VideoCapture(url, cv2.CAP_FFMPEG)  
+                    #cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)  
+                 
+              except:
+                 e = sys.exc_info() #[0]
+                 print('Error: Capturing RTSP frame {} from {} failed: {}'.format(i, url, e))
+                 continue   
+              i += 1
+            
+           cap.release() #releasing camera 
+           '''
+           #try:
+           ret = cap.grab() # faster than read - process last frame using retreive() - mjs
+           #except Exception as e:
+           #  #e = sys.exc_info() #[0]
+           #  print('Error: Capturing RTSP frame from {} failed: {}'.format(url, e))
+                        
+           if ret:
+              rtrv, frame = cap.retrieve() #(ret)
+              
+           if frame is not None:
+              #cv2.imwrite(filename, frame)
+              frame_bytearray = cv2.imencode('.jpg', frame)[1].tobytes()
+                 
+           #else:
+           #   print("******************** Cannot open RTSP camera stream ***********************")
+                
+    except:
+       e = sys.exc_info()[0]
+       cap.release() #releasing camera 
+       logger.info("******************* Failed to capture RTSP image from: {} - Error: {}".format(url, e))
+        
+    #cap.release() #releasing camera
+        
+    data['frame'] = frame_bytearray
+    
+    print("******************* End capture {} - RTSP frame: {}".format(url, datetime.datetime.utcnow()))
+    
+    
+'''    
+class RTSP_GetFrame(Thread):
+
+    def __init__(self, url=None):
+      Thread.__init__(self)
+      self.url = url
+      self.frame_bytearray = bytearray()  
+
+    def run(self):
+           
+       logger.info('Capturing RTSP frame from %s', self.url) 
+           
+       print("******************* Capture {} - RTSP frame: {}".format(self.url, datetime.datetime.utcnow()))
+     
+       cap = cv2.VideoCapture(self.url, cv2.CAP_FFMPEG) 
+       cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
+    
+       #time.sleep(0.100) #give connection some time - using time instead of looping helps unload network
+      
+       try:
+          
+           i = 0
+           while i < 5: #Loop through at least 10 frames 
+              try:
+                 if cap.isOpened():
+                    ret, frame = cap.read()
+                    #ret = cap.grab() # faster than read - process last frame using retreive() - mjs
+                    #if ret is None:
+                    #   logger.info('##############  Re-initialize VideoCapture for {} @ {}'.format(self.url, datetime.datetime.utcnow()))
+                    #   cap = cv2.VideoCapture(self.url, cv2.CAP_FFMPEG)
+                 else:
+                    logger.info('############## Connection lost VideoCapture for {} @ {}'.format(self.url, datetime.datetime.utcnow()))
+                    break
+                    #cap.release() #releasing camera 
+                    #logger.info('##############  Re-initialize VideoCapture for {} @ {}'.format(self.url, datetime.datetime.utcnow()))
+                    #cap = cv2.VideoCapture(self.url, cv2.CAP_FFMPEG)  
+                    #cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)  
+              except:
+                 logger.info('Capturing RTSP frame {} from {} failed...'.format(i, self.url))
+                 continue   
+              #time.sleep(0.010) #take a break before capturing next frame 
+              i += 1
+            
+           #if ret is not None:
+           #   rtrv, frame = cap.retrieve(ret)
+           try:
+              cap.release() #releasing camera 
+           except:
+              logger.info('1 - Cap release failed...'.format(self.url))   
+           
+           if frame is not None:
+              #cv2.imwrite(filename, frame)
+              self.frame_bytearray = cv2.imencode('.jpg', frame)[1].tobytes()
+                 
+           #else:
+           #   print("******************** Cannot open RTSP camera stream ***********************")
+                
+       except:
+           try:
+              cap.release() #releasing camera 
+              logger.info("******************* Error: Failed to capture RTSP frame image: ************************")
+           except:
+              logger.info('2 - Cap release failed...'.format(self.url))
+               
+       print("******************* End capture {} - RTSP frame: {}".format(self.url, datetime.datetime.utcnow()))
+'''
+
+
+#Modified to capture frame from RTSP stream - 23may2023 - mjs    
+def download_url(url):
+    logger.info('Downloading frame from %s', url)
+    
+    frame = bytearray()
+    
+    if ('rtsp' in GET_FRAME) or ('RTSP' in GET_FRAME): 
+          
+       with mp.Manager() as manager:
+       
+          #data = mp.Manager().dict({'frame': None})
+          data = manager.dict({'frame': None})
+    
+          #frame = bytearray()
+    
+          process = mp.Process(target=get_rtsp_frame, args=(url, data,))
+          process.start()
+          process.join()
+    
+          frame = data['frame']
+          
+          
+       '''   
+       thread = RTSP_GetFrame(url)
+       thread.start()
+       thread.join() 
+       frame = thread.frame_bytearray
+       '''
+    
+    elif ('http' in GET_FRAME) or ('HTTP' in GET_FRAME):
+      
+       frame = get_http_snapshot(url)
+    
+    else:
+    
+       frame = frame
+    
+    return frame 
+    
 
 
 def attach_framegrabs(event, grabs):
