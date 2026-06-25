@@ -17,7 +17,9 @@ import datetime
 import json
 import logging
 import os
+import time
 import urllib.parse
+import hashlib
 
 import requests
 import socketio
@@ -55,6 +57,9 @@ EVENT_QUEUE = None  # see https://stackoverflow.com/a/55918049/145504
 # Records the last heartbeat timestamp from the imaging control server
 LAST_HEARTBEAT = None
 
+# Dictionary to track the last frame hash and timestamp for each camera
+FRAME_HISTORY = {}  # {label: {'hash': hash_value, 'last_change': timestamp}}
+
 
 def download_url(url):
     logger.info('Downloading frame from %s', url)
@@ -74,6 +79,11 @@ def attach_framegrabs(event, grabs):
     }
 
     for label, file in grabs:
+        # Calculate elapsed time since last frame change
+        elapsed_time = 0
+        if label in FRAME_HISTORY:
+            elapsed_time = time.time() - FRAME_HISTORY[label]['last_change']
+            
         aux_data['data_array'].extend([
             { 'data_name': 'camera_name', 'data_value': label },
 
@@ -81,7 +91,8 @@ def attach_framegrabs(event, grabs):
             # The filename provided here will be processed by get_image_url()
             # defined in client_config.js. This currently means that we need to
             # insert a /.
-            { 'data_name': 'filename',    'data_value': f'/{file}' },
+            { 'data_name': 'filename', 'data_value': f'/{file}', 'data_age': elapsed_time },
+
         ])
 
     # Post the new auxiliary data
@@ -91,6 +102,14 @@ def attach_framegrabs(event, grabs):
         headers=headers,
         json=aux_data,
     )
+
+
+def get_frame_hash(frame_data):
+    """Generate an efficient hash of the frame data using SHA-1."""
+    if frame_data is None:
+        logger.warning('Unable to hash frame - frame is None')
+        return None
+    return hashlib.sha1(frame_data).hexdigest()
 
 
 # Handle an incoming Sealog events by contacting all known framegrabbers and
@@ -145,10 +164,27 @@ async def auxdata_worker():
         # Now that we finally know labels for the grabbers, write frames to
         # disk and attach them to the original Sealog event.
         grabs = []
+        current_time = time.time()
+        
         for grabber, frame in zip(ARGS.grabbers, event.frames):
             if frame is None:
                 continue
             label, _, pattern = grabber
+            
+            # Calculate hash of the current frame
+            frame_hash = get_frame_hash(frame)
+            
+            # Check if this is a new frame
+            is_new_frame = True
+            if label in FRAME_HISTORY:
+                is_new_frame = frame_hash != FRAME_HISTORY[label]['hash']
+            
+            # Update frame history
+            if label not in FRAME_HISTORY:
+                FRAME_HISTORY[label] = {'hash': frame_hash, 'last_change': current_time}
+            elif is_new_frame:
+                FRAME_HISTORY[label]['hash'] = frame_hash
+                FRAME_HISTORY[label]['last_change'] = current_time
 
             out_name = pattern.replace('{}',
                 event.timestamp.strftime('%Y%m%d_%H%M%S%f')[:-3])
