@@ -1,5 +1,5 @@
 aiohttp==3.11.18
-python-socketio==5.4.1
+python-socketio==5.16.2
 python-engineio==4.13.2
 requests==2.32.0
 websockets==9.1
