@@ -1,4 +1,4 @@
-FROM python:3.9
+FROM python:3.11
 
 # Uncomment this section to install our CA certificate to the container, and use
 #   --build-arg http_proxy=http://199.92.162.241:3128 \

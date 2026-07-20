@@ -282,11 +282,16 @@ def handle_jds_packet(packet):
 
 def handle_mds_packet(packet):
     # MROV packet format:
+    #
     # MDS YYYY/MM/DD HH:MM:SS.SSS Lat Lon Z Depth Alt SOG COG Northing Easting Roll Pitch Heading
+    #
+    # An example packet:
+    #
+    # MDS 2026/07/20 19:04:48.623 -70.7023 41.4841 0.149333 0.149333 59.8507 0.5 211.523 4.5939e+06 357886 7.39752e-08 1.11312e-25 1.63908e-14
+
     data = packet.decode().rstrip('\n').split(' ')
 
     if not data or data[0] != 'MDS':
-        logger.debug('MDS line header missing')
         return
 
     # Check for sufficient fields: MDS + date + time + 12 data fields
@@ -296,32 +301,21 @@ def handle_mds_packet(packet):
 
     timestamp = parse_dsl_timestamp(f'{data[1]} {data[2]}')
 
-    # Use JDS field names for consistency with existing nav data
+    # Field names follow the JDS handler; fields named None are not recorded.
     fields = (
         ('latitude', 'ddeg'),
         ('longitude', 'ddeg'),
-        ('local_x', 'meters'),
-        ('local_y', 'meters'),
+        (None, None),            # z
+        ('depth', 'meters'),
+        ('altitude', 'meters'),
+        (None, None),            # speed over ground
+        (None, None),            # course over ground
+        ('local_x', 'meters'),   # northing
+        ('local_y', 'meters'),   # easting
         ('roll', 'deg'),
         ('pitch', 'deg'),
         ('heading', 'deg'),
-        ('depth', 'meters'),
-        ('altitude', 'meters'),
     )
-
-    # Extract MROV fields and map to standard nav data order
-    # MROV: MDS timestamp Lat Lon Z Depth Alt SOG COG Northing Easting Roll Pitch Heading
-    field_values = [
-        data[3],   # latitude -> latitude
-        data[4],   # longitude -> longitude
-        data[10],  # northing -> local_x
-        data[11],  # easting -> local_y
-        data[12],  # roll -> roll
-        data[13],  # pitch -> pitch
-        data[14],  # heading -> heading
-        data[6],   # depth -> depth
-        data[7],   # altitude -> altitude
-    ]
 
     # Record this packet to our cache.
     #
@@ -333,7 +327,8 @@ def handle_mds_packet(packet):
             'data_source': 'vehicleRealtimeNavData',
             'data_array': [
                 { 'data_name': name, 'data_value': value, 'data_uom': unit }
-                for value, (name, unit) in zip(field_values, fields)
+                for value, (name, unit) in zip(data[3:], fields)
+                if name is not None
             ]
         }
     )
@@ -407,20 +402,25 @@ async def handle_event(event):
 
     try:
         aux_data_ts, aux_data = get_cache_entry(event_ts)
-        logger.debug(f'Found aux data for event {event_id}: timestamp={aux_data_ts}, data_source={aux_data.get("data_source", "unknown")}')
+        logger.debug(f'Found aux data for event {event_id}: '
+                     f'timestamp={aux_data_ts}, '
+                     f'data_source={aux_data.get("data_source", "unknown")}')
         logger.debug(f'Aux data details: {aux_data}')
     except ValueError as e:
-        logger.warning(f'No aux data available for event {event["message"]["id"]}: {e}')
-        logger.debug(f'Cache state - size: {len(AUX_DATA_CACHE)}, timestamps: {[entry.timestamp for entry in AUX_DATA_CACHE[:5]]}...')
+        logger.warning(f'No aux data available for event {event_id}: {e}')
+        logger.debug(f'Cache state - size: {len(AUX_DATA_CACHE)}, timestamps: '
+                     f'{[entry.timestamp for entry in AUX_DATA_CACHE[:5]]}...')
         return
 
     # Calculate time difference for debugging
     time_diff = abs((event_ts - aux_data_ts).total_seconds())
-    logger.debug(f'Time difference between event and aux data: {time_diff} seconds (max_age: {ARGS.max_age})')
-    
+    logger.debug(f'Time difference between event and aux data: '
+                 f'{time_diff:.1f}s (max_age: {ARGS.max_age}s)')
+
     # Do not associate with the event if the aux_data we found is too old
     if time_diff > ARGS.max_age:
-        logger.info(f'Ignoring event {event_id} - aux data too old (age: {time_diff}s > max: {ARGS.max_age}s)')
+        logger.info(f'Not adding stale aux data to {event_id} '
+                    f'(age: {time_diff:.1f}s > max: {ARGS.max_age}s)')
         return
 
     # Associate the aux_data with this event
@@ -437,11 +437,15 @@ async def handle_event(event):
         )
         logger.debug(f'API response status: {response.status_code}')
         if response.status_code == 201:
-            logger.debug(f'Successfully associated aux data with event {event_id}')
+            logger.debug(
+                f'Successfully associated aux data with event {event_id}')
         else:
-            logger.warning(f'API request failed for event {event_id}: status={response.status_code}, response={response.text}')
+            logger.warning(f'API request failed for event {event_id}: '
+                           f'status={response.status_code}, '
+                           f'response={response.text}')
     except Exception as e:
-        logger.error(f'Exception occurred while posting aux data for event {event_id}: {e}')
+        e.add_note(
+            f'Exception occurred while posting aux data for event {event_id}')
         raise
 
 
